@@ -28,11 +28,11 @@ Both panels are single self-contained HTML files with no build step, no framewor
 
 ```
 zwift-racing-hud/
-├── index.html     # Left panel
-├── right.html     # Right panel
+├── left_panel.html     # Left panel
+├── right_panel.html     # Right panel
 └── README.md
 ```
-![Architecture](architecture.png)
+![Architecture](docs/architecture.png)
 
 ### Data flow
 
@@ -42,8 +42,8 @@ Sauce for Zwift (localhost:1080)
         │  REST polling, 1s interval
         ▼
   Browser (Chrome)
-  ├── index.html  →  nearby/v2, athlete/v2/watching
-  └── right.html  →  nearby/v2, groups/v2, chat (probed)
+  ├── panel_left.html
+  └── panel_right  →  nearby/v2, athlete/v2/watching, chat (probed)
 ```
 
 - **No WebSocket.** Both panels use `setInterval` + `fetch` at 1-second intervals.
@@ -86,8 +86,8 @@ The active mode is shown in the bottom-right corner of the map panel.
 ### Quickstart (no server needed)
 
 1. Start Zwift and make sure Sauce for Zwift is running
-2. Open `index.html` in Chrome — drag to the left half of your monitor
-3. Open `right.html` in Chrome — drag to the right half
+2. Open `left_panel.html` in Chrome — drag to the left half of your monitor
+3. Open `right_panel.html` in Chrome — drag to the right half
 4. Both panels default to `localhost:1080` and connect automatically
 
 That's it. No install, no server, no build step.
@@ -132,7 +132,7 @@ Fonts: **Roboto Mono** (numbers and code values) + **Barlow Condensed** (labels 
 
 To share with others:
 
-1. Zip `index.html`, `right.html`, and this `README.md`
+1. Zip `left_panel.html`, `right_panel.html`, and this `README.md`
 2. Recipients open both files directly in Chrome — no server required
 3. Sauce for Zwift defaults to `localhost:1080` so no configuration is needed for most users
 

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zwift Racing HUD — Right Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:     #080b0f;
+    --bg2:    #0d1117;
+    --bg3:    #111820;
+    --border: #2a3f54;
+    --dim:    #5a7a96;
+    --muted:  #8aafc8;
+    --text:   #d8eaf8;
+    --bright: #f0f8ff;
+    --accent: #00aaff;
+    --green:  #00e87a;
+    --yellow: #f5c400;
+    --red:    #ff2d55;
+    --mono:   'Roboto Mono', monospace;
+    --sans:   'Barlow Condensed', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--mono);
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden; user-select: none;
+  }
+
+  /* ── CONN BAR ── */
+  #conn-bar {
+    display: flex; align-items: center; gap: 8px; padding: 5px 10px;
+    background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; font-size: 11px;
+  }
+  #conn-bar input {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 11px; padding: 2px 7px;
+    flex: 1; outline: none; border-radius: 2px; min-width: 0;
+  }
+  #conn-bar input:focus { border-color: var(--accent); }
+  #conn-bar button {
+    background: var(--border); border: 1px solid var(--dim); color: var(--bright);
+    font-family: var(--mono); font-size: 11px; padding: 2px 10px;
+    cursor: pointer; border-radius: 2px; flex-shrink: 0;
+  }
+  #conn-bar button:hover { background: var(--dim); }
+  #status-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    background: var(--muted); transition: background 0.3s;
+  }
+  #status-dot.connected    { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  #status-dot.connecting   { background: var(--yellow); animation: blink 1s infinite; }
+  #status-dot.disconnected { background: var(--red); }
+  #status-text { color: var(--muted); flex-shrink: 0; }
+  #last-update { margin-left: auto; color: var(--dim); font-size: 10px; flex-shrink: 0; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* ── LAYOUT ── */
+  #sections {
+    flex: 1; display: flex; flex-direction: column;
+    gap: 1px; background: var(--border); overflow: hidden;
+  }
+  .section {
+    background: var(--bg); display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  }
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 12px; background: var(--bg2);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .section-title {
+    font-family: var(--sans); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase;
+  }
+  .section-meta { font-size: 11px; color: var(--muted); }
+
+  /* Position strip — fixed height */
+  #sec-position { flex: 0 0 auto; }
+
+  /* Map — takes the bulk of the space */
+  #sec-map { flex: 1; min-height: 0; }
+  #sec-map .section-body { flex: 1; min-height: 0; position: relative; }
+
+  /* Bottom row — groups + chat side by side */
+  #bottom-row {
+    flex: 0 0 45vh; display: flex; flex-direction: row;
+    gap: 1px; background: var(--border); min-height: 0;
+  }
+  #sec-groups { flex: 1; min-width: 0; }
+  #sec-chat   { flex: 1; min-width: 0; }
+
+  /* ── POSITION ── */
+  #position-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 1px; background: var(--border);
+  }
+  .pos-cell { background: var(--bg); padding: 10px 14px; }
+  .pos-label {
+    font-family: var(--sans); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 3px;
+  }
+  .pos-val  { font-size: 42px; font-weight: 500; line-height: 1; color: var(--bright); }
+  .pos-sub  { font-size: 11px; color: var(--dim); margin-top: 4px; }
+  #pos-rank-val { color: var(--accent); }
+  .gap-dir-ahead  { color: var(--red); }
+  .gap-dir-behind { color: var(--green); }
+  .pos-name {
+    font-family: var(--sans); font-size: 13px; color: var(--muted);
+    margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* ── SHARED IFRAME STYLE ── */
+  .sauce-iframe {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    border: none; display: block;
+  }
+  /* Bottom-row iframes fill their section body */
+  #sec-groups .section-body,
+  #sec-chat   .section-body {
+    flex: 1; min-height: 0; position: relative;
+  }
+
+  /* ── FOOTER ── */
+  #footer {
+    display: flex; gap: 16px; padding: 3px 10px;
+    background: var(--bg2); border-top: 1px solid var(--border);
+    font-size: 10px; color: var(--dim); flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<div id="conn-bar">
+  <div id="status-dot" class="disconnected"></div>
+  <span id="status-text">disconnected</span>
+  <input id="sauce-host" type="text" value="localhost:1080" placeholder="host:port" />
+  <button id="connect-btn">Connect</button>
+  <span id="last-update"></span>
+</div>
+
+<div id="sections">
+
+  <!-- POSITION -->
+  <div class="section" id="sec-position">
+    <div class="section-header">
+      <span class="section-title">Race Position</span>
+      <span class="section-meta" id="pos-event-label"></span>
+    </div>
+    <div id="position-grid">
+      <div class="pos-cell">
+        <div class="pos-label">Position</div>
+        <div class="pos-val" id="pos-rank-val">—</div>
+        <div class="pos-sub" id="pos-of">of — riders</div>
+      </div>
+      <div class="pos-cell">
+        <div class="pos-label">Gap Ahead</div>
+        <div class="pos-val gap-dir-ahead" id="pos-gap-ahead">—</div>
+        <div class="pos-name" id="pos-name-ahead"></div>
+      </div>
+      <div class="pos-cell">
+        <div class="pos-label">Gap Behind</div>
+        <div class="pos-val gap-dir-behind" id="pos-gap-behind">—</div>
+        <div class="pos-name" id="pos-name-behind"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div class="section" id="sec-map">
+    <div class="section-header">
+      <span class="section-title">Course Map</span>
+      <span class="section-meta">sauce geo</span>
+    </div>
+    <div class="section-body">
+      <iframe id="map-iframe" class="sauce-iframe" src="about:blank"></iframe>
+    </div>
+  </div>
+
+  <!-- BOTTOM ROW -->
+  <div id="bottom-row">
+
+    <div class="section" id="sec-groups">
+      <div class="section-header">
+        <span class="section-title">Groups</span>
+        <span class="section-meta">sauce</span>
+      </div>
+      <div class="section-body">
+        <iframe id="groups-iframe" class="sauce-iframe" src="about:blank"></iframe>
+      </div>
+    </div>
+
+    <div class="section" id="sec-chat">
+      <div class="section-header">
+        <span class="section-title">Chat</span>
+        <span class="section-meta">sauce</span>
+      </div>
+      <div class="section-body">
+        <iframe id="chat-iframe" class="sauce-iframe" src="about:blank"></iframe>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<div id="footer">
+  <span>PKT <span id="f-packets">0</span></span>
+  <span>EVT <span id="f-evtsub">—</span></span>
+</div>
+
+<script>
+const POLL_MS = 1000;
+const $ = id => document.getElementById(id);
+
+const state = {
+  pollTimer: null,
+  selfId: null, selfEventSubgroup: null,
+  selfLaps: 0, selfLapCount: null,
+  selfEventPosition: null, selfEventParticipants: null,
+  nearbyRaw: [],
+  polls: 0, connected: false,
+};
+
+function getHost() { return $('sauce-host').value.trim() || 'localhost:1080'; }
+function apiUrl(p) { return `http://${getHost()}/api/${p}`; }
+function pageUrl(p) { return `http://${getHost()}/pages/${p}`; }
+
+// ── CONNECT ───────────────────────────────────────────────────────────────
+function connect() {
+  if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+  Object.assign(state, {
+    connected: false,
+    selfId: null, selfEventSubgroup: null, selfLaps: 0,
+    selfEventPosition: null, selfEventParticipants: null,
+  });
+
+  // Load all three Sauce pages
+  $('map-iframe').src    = pageUrl('geo.html');
+  $('groups-iframe').src = pageUrl('groups.html');
+  $('chat-iframe').src   = pageUrl('chat.html');
+
+  setStatus('connecting', getHost());
+  poll().then(() => {
+    state.pollTimer = setInterval(poll, POLL_MS);
+  }).catch(() => setStatus('disconnected', 'unreachable'));
+}
+
+async function poll() {
+  try {
+    const res = await fetch(
+      apiUrl('nearby/v2?resource=state&resource=athlete&resource=stats&stats=true'),
+      { signal: AbortSignal.timeout(2000) }
+    );
+    if (!state.connected) { state.connected = true; setStatus('connected', getHost()); }
+    state.polls++;
+    $('f-packets').textContent   = state.polls;
+    $('last-update').textContent = new Date().toLocaleTimeString();
+
+    if (res.ok) {
+      const d = await res.json();
+      state.nearbyRaw = Array.isArray(d) ? d : (d.data ?? []);
+      processNearby(state.nearbyRaw);
+    }
+  } catch {
+    if (state.connected) { state.connected = false; setStatus('disconnected', 'lost connection'); }
+  }
+}
+
+function setStatus(cls, txt) { $('status-dot').className = cls; $('status-text').textContent = txt; }
+
+// ── POSITION ──────────────────────────────────────────────────────────────
+function processNearby(riders) {
+  const self = riders.find(r => r.watching === true);
+  if (self) {
+    state.selfId                = self.athleteId || self.id;
+    state.selfEventSubgroup     = self.state?.eventSubgroupId ?? null;
+    state.selfLaps              = self.state?.laps ?? 0;
+    state.selfLapCount          = self.lapCount ?? null;
+    state.selfEventPosition     = self.eventPosition ?? null;
+    state.selfEventParticipants = self.eventParticipants ?? null;
+    if (state.selfEventSubgroup) $('f-evtsub').textContent = state.selfEventSubgroup;
+  }
+
+  // Position — use authoritative eventPosition when available
+  if (state.selfEventPosition !== null) {
+    $('pos-rank-val').textContent = state.selfEventPosition;
+    $('pos-of').textContent = state.selfEventParticipants
+      ? `of ${state.selfEventParticipants} riders`
+      : 'of — riders';
+  } else {
+    const sorted  = lapAwareSort(eventRiders(riders));
+    const selfIdx = sorted.findIndex(r => r.watching === true);
+    $('pos-rank-val').textContent = selfIdx >= 0 ? selfIdx + 1 : '—';
+    $('pos-of').textContent = `of ${sorted.length} riders`;
+  }
+
+  // Lap / event label
+  const lapTxt = (state.selfLapCount && state.selfLapCount > 1)
+    ? `lap ${state.selfLaps + 1} / ${state.selfLapCount}`
+    : (state.selfEventSubgroup ? `evt ${state.selfEventSubgroup}` : '');
+  $('pos-event-label').textContent = lapTxt;
+
+  // Gap ahead / behind — lap-aware sort
+  const sorted  = lapAwareSort(eventRiders(riders));
+  const selfIdx = sorted.findIndex(r => r.watching === true);
+
+  const ahead = selfIdx > 0 ? sorted[selfIdx - 1] : null;
+  if (ahead) {
+    const lapDiff = (ahead.state?.laps ?? 0) - state.selfLaps;
+    if (lapDiff > 0) {
+      $('pos-gap-ahead').textContent  = `+${lapDiff}L`;
+      $('pos-name-ahead').textContent = riderName(ahead, 18);
+    } else if (ahead.gap != null) {
+      $('pos-gap-ahead').textContent  = formatGap(Math.abs(ahead.gap));
+      $('pos-name-ahead').textContent = riderName(ahead, 18);
+    } else {
+      $('pos-gap-ahead').textContent  = '—';
+      $('pos-name-ahead').textContent = '';
+    }
+  } else {
+    $('pos-gap-ahead').textContent  = selfIdx === 0 ? 'Leader' : '—';
+    $('pos-name-ahead').textContent = '';
+  }
+
+  const behind = selfIdx >= 0 && selfIdx < sorted.length - 1 ? sorted[selfIdx + 1] : null;
+  if (behind) {
+    const lapDiff = state.selfLaps - (behind.state?.laps ?? 0);
+    if (lapDiff > 0) {
+      $('pos-gap-behind').textContent  = `+${lapDiff}L`;
+      $('pos-name-behind').textContent = riderName(behind, 18);
+    } else if (behind.gap != null) {
+      $('pos-gap-behind').textContent  = formatGap(Math.abs(behind.gap));
+      $('pos-name-behind').textContent = riderName(behind, 18);
+    } else {
+      $('pos-gap-behind').textContent  = '—';
+      $('pos-name-behind').textContent = '';
+    }
+  } else {
+    $('pos-gap-behind').textContent  = selfIdx === sorted.length - 1 ? 'Last' : '—';
+    $('pos-name-behind').textContent = '';
+  }
+}
+
+function eventRiders(riders) {
+  const sub = state.selfEventSubgroup;
+  if (sub === null) return riders;
+  return riders.filter(r => {
+    const rs = r.state?.eventSubgroupId ?? null;
+    return rs === null || rs === sub;
+  });
+}
+
+function lapAwareSort(riders) {
+  return [...riders].sort((a, b) => {
+    const la = a.state?.laps ?? 0, lb = b.state?.laps ?? 0;
+    if (la !== lb) return lb - la;       // more laps = further ahead
+    return (a.gap ?? 0) - (b.gap ?? 0); // within same lap, smaller gap = further ahead
+  });
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function formatGap(s) {
+  if (s == null) return '—';
+  s = Math.abs(s);
+  return s < 60
+    ? `${Math.round(s)}s`
+    : `${Math.floor(s/60)}m${String(Math.round(s%60)).padStart(2,'0')}s`;
+}
+function riderName(r, len) {
+  return truncate(r.athlete?.fullname || r.name || `#${r.athleteId ?? r.id ?? '?'}`, len);
+}
+function truncate(str, len) { return str.length > len ? str.slice(0,len-1)+'…' : str; }
+
+// ── EVENTS ────────────────────────────────────────────────────────────────
+$('connect-btn').addEventListener('click', () => {
+  if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+  connect();
+});
+$('sauce-host').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+  connect();
+});
+
+connect();
+</script>
+</body>
+</html>
