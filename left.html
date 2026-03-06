@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZWIFT RACING HUD - LH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:     #080b0f;
+    --bg2:    #0d1117;
+    --bg3:    #111820;
+    --border: #2a3f54;
+    --dim:    #5a7a96;
+    --muted:  #8aafc8;
+    --text:   #d8eaf8;
+    --bright: #f0f8ff;
+    --accent: #00aaff;
+    --green:  #00e87a;
+    --yellow: #f5c400;
+    --red:    #ff2d55;
+    --mono:   'Roboto Mono', monospace;
+    --sans:   'Barlow Condensed', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--mono);
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden; user-select: none;
+  }
+
+  /* ── CONN BAR ── */
+  #conn-bar {
+    display: flex; align-items: center; gap: 8px; padding: 5px 10px;
+    background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; font-size: 11px;
+  }
+  #conn-bar input {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 11px; padding: 2px 7px;
+    flex: 1; outline: none; border-radius: 2px; min-width: 0;
+  }
+  #conn-bar input:focus { border-color: var(--accent); }
+  #conn-bar button {
+    background: var(--border); border: 1px solid var(--dim); color: var(--bright);
+    font-family: var(--mono); font-size: 11px; padding: 2px 10px;
+    cursor: pointer; border-radius: 2px; flex-shrink: 0;
+  }
+  #conn-bar button:hover { background: var(--dim); }
+  #status-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    background: var(--muted); transition: background 0.3s;
+  }
+  #status-dot.connected    { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  #status-dot.connecting   { background: var(--yellow); animation: blink 1s infinite; }
+  #status-dot.disconnected { background: var(--red); }
+  #status-text { color: var(--muted); flex-shrink: 0; }
+  #last-update { margin-left: auto; color: var(--dim); font-size: 10px; flex-shrink: 0; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* ── LAYOUT ── */
+  #sections {
+    flex: 1; display: flex; flex-direction: column;
+    gap: 1px; background: var(--border); overflow: hidden;
+  }
+  .section {
+    background: var(--bg); display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  }
+  #sec-self   { flex: 2.4; }
+  #sec-nearby { flex: 1.6; }
+
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 12px; background: var(--bg2);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .section-title {
+    font-family: var(--sans); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase;
+  }
+  .section-meta { font-size: 11px; color: var(--muted); }
+
+  /* ── SELF SECTION ── */
+  #sec-self .section-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+  #self-top {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 1px; background: var(--border); flex-shrink: 0;
+  }
+  #power-block, #wbal-block { background: var(--bg); padding: 10px 16px; }
+
+  .stat-label {
+    font-family: var(--sans); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 3px;
+  }
+  .big-val  { font-size: 62px; font-weight: 500; line-height: 1; color: var(--bright); }
+  .big-unit { font-size: 15px; color: var(--muted); margin-left: 3px; }
+  .sub-val  { font-size: 12px; color: var(--dim); margin-top: 4px; }
+
+  #wbal-num { font-size: 40px; font-weight: 500; line-height: 1; color: var(--green); transition: color 0.5s; }
+  #wbal-pct { font-size: 14px; color: var(--dim); margin-left: 6px; }
+  #wbal-bar-track {
+    height: 10px; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 1px; overflow: hidden; margin-top: 8px;
+  }
+  #wbal-bar-fill {
+    height: 100%; width: 100%; border-radius: 1px;
+    transition: width 0.8s ease, background 0.8s ease; background: var(--green);
+  }
+
+  #self-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 1px; background: var(--border); flex-shrink: 0;
+  }
+  .mini-stat { background: var(--bg); padding: 8px 12px 7px; }
+  .mini-val  { font-size: 30px; font-weight: 400; color: var(--bright); line-height: 1; }
+  .mini-unit { font-family: var(--sans); font-size: 11px; color: var(--dim); display: block; margin-top: 2px; }
+
+  #trip-strip {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 1px; background: var(--border); flex-shrink: 0;
+  }
+  .trip-cell { background: var(--bg2); padding: 5px 12px; }
+  .trip-label { font-family: var(--sans); font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: var(--dim); text-transform: uppercase; }
+  .trip-val   { font-size: 18px; color: var(--text); line-height: 1.2; }
+  #remaining-val { color: var(--accent); }
+
+  #self-bottom {
+    flex: 1; display: grid; grid-template-columns: auto 1fr;
+    gap: 1px; background: var(--border); min-height: 0;
+  }
+  #peaks-block {
+    background: var(--bg); padding: 10px 14px;
+    display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  #peaks-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px;
+    flex: 1; align-content: space-around; margin-top: 4px;
+  }
+  .peak-row  { display: flex; align-items: baseline; gap: 6px; }
+  .peak-dur  { font-family: var(--sans); font-size: 11px; font-weight: 600; color: var(--dim); width: 28px; text-align: right; flex-shrink: 0; }
+  .peak-val  { font-size: 22px; font-weight: 400; color: var(--text); line-height: 1; }
+  .peak-unit { font-family: var(--sans); font-size: 11px; color: var(--dim); }
+
+  #chart-block {
+    background: var(--bg); display: flex; flex-direction: column;
+    min-width: 0; padding: 8px 10px 8px 6px;
+  }
+  #chart-legend {
+    display: flex; gap: 12px; align-items: center; margin-bottom: 4px; flex-shrink: 0;
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-family: var(--sans); font-size: 10px; color: var(--dim); }
+  .legend-dot  { width: 8px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+  #chart-label { margin-left: auto; font-family: var(--sans); font-size: 10px; color: var(--dim); }
+  #power-canvas { flex: 1; width: 100%; min-height: 0; display: block; }
+
+  /* ── NEARBY SECTION ── */
+  #sec-nearby .section-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+  #nearby-controls {
+    display: flex; gap: 6px; padding: 5px 10px; align-items: center;
+    background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .tog {
+    font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+    padding: 2px 10px; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--muted); cursor: pointer; border-radius: 2px; text-transform: uppercase; transition: all 0.15s;
+  }
+  .tog.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+
+  #rider-detail {
+    display: none; background: var(--bg2); border-bottom: 1px solid var(--border); padding: 8px 12px; flex-shrink: 0;
+  }
+  #rider-detail.visible { display: block; }
+  #detail-name { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--bright); margin-bottom: 6px; }
+  #detail-grid { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 4px; }
+  .detail-cell { background: var(--bg3); padding: 5px 8px; border-radius: 2px; }
+  .detail-label { font-family: var(--sans); font-size: 9px; font-weight: 600; letter-spacing: 0.1em; color: var(--dim); text-transform: uppercase; }
+  .detail-val   { font-size: 20px; color: var(--bright); line-height: 1.1; }
+  .detail-sub   { font-size: 10px; color: var(--dim); margin-top: 1px; }
+  #detail-wbar-track { height: 6px; background: var(--bg); border-radius: 1px; overflow: hidden; margin-top: 5px; }
+  #detail-wbar-fill  { height: 100%; border-radius: 1px; transition: width 0.6s, background 0.6s; background: var(--green); }
+
+  #rider-wrap {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    position: sticky; top: 0; z-index: 1; background: var(--bg2);
+    border-bottom: 1px solid var(--border); padding: 5px 8px 4px;
+    font-family: var(--sans); font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--dim); text-transform: uppercase; white-space: nowrap;
+  }
+  thead th.r { text-align: right; }
+  tbody tr { border-bottom: 1px solid rgba(42,63,84,0.5); cursor: pointer; }
+  tbody tr:hover { background: var(--bg2); }
+  tbody tr.is-self   { background: rgba(0,170,255,0.07); border-left: 2px solid var(--accent); }
+  tbody tr.selected  { background: rgba(0,170,255,0.13); border-left: 2px solid var(--yellow); }
+  td { padding: 5px 8px; font-size: 13px; color: var(--text); white-space: nowrap; }
+  td.r { text-align: right; }
+  td.name-td { max-width: 130px; overflow: hidden; text-overflow: ellipsis; font-family: var(--sans); font-size: 14px; }
+
+  .gap-badge { font-family: var(--sans); font-size: 12px; padding: 1px 6px; border-radius: 2px; display: inline-block; }
+  .gap-badge.ahead  { color: var(--red);   background: rgba(255,45,85,0.12); }
+  .gap-badge.behind { color: var(--green); background: rgba(0,232,122,0.10); }
+  .gap-badge.self   { color: var(--accent); }
+
+  .wbar-wrap { display: flex; align-items: center; gap: 5px; justify-content: flex-end; }
+  .wbar      { width: 36px; height: 5px; background: var(--bg3); border-radius: 1px; overflow: hidden; flex-shrink: 0; }
+  .wbar-fill { height: 100%; border-radius: 1px; transition: width 0.6s, background 0.6s; }
+  .wnum      { font-size: 12px; min-width: 30px; text-align: right; }
+
+  .no-data { display: flex; align-items: center; justify-content: center; height: 60px; font-size: 12px; color: var(--dim); }
+
+  /* ── FOOTER ── */
+  #footer {
+    display: flex; gap: 16px; padding: 3px 10px;
+    background: var(--bg2); border-top: 1px solid var(--border);
+    font-size: 10px; color: var(--dim); flex-shrink: 0;
+  }
+
+  @keyframes flash { 0%,100%{color:var(--bright)} 50%{color:var(--accent)} }
+  .flash { animation: flash 0.3s ease; }
+</style>
+</head>
+<body>
+
+<div id="conn-bar">
+  <div id="status-dot" class="disconnected"></div>
+  <span id="status-text">disconnected</span>
+  <input id="sauce-host" type="text" value="192.168.86.27:1080" placeholder="host:port" />
+  <button id="connect-btn">Connect</button>
+  <span id="last-update"></span>
+</div>
+
+<div id="sections">
+
+  <!-- SELF -->
+  <div class="section" id="sec-self">
+    <div class="section-header">
+      <span class="section-title">Self</span>
+      <span class="section-meta" id="s-wkg-header"></span>
+    </div>
+    <div class="section-body">
+
+      <div id="self-top">
+        <div id="power-block">
+          <div class="stat-label">Power</div>
+          <div><span class="big-val" id="s-power">—</span><span class="big-unit">w</span></div>
+          <div class="sub-val">avg <span id="s-avgpwr">—</span>w &nbsp; max <span id="s-maxpwr">—</span>w</div>
+        </div>
+        <div id="wbal-block">
+          <div class="stat-label">W' Balance</div>
+          <div><span id="wbal-num">—</span><span class="big-unit">kJ</span><span id="wbal-pct"></span></div>
+          <div id="wbal-bar-track"><div id="wbal-bar-fill"></div></div>
+        </div>
+      </div>
+
+      <div id="self-stats">
+        <div class="mini-stat">
+          <div class="stat-label">HR</div>
+          <div><span class="mini-val" id="s-hr">—</span><span class="mini-unit">bpm</span></div>
+          <div class="sub-val">avg <span id="s-avghr">—</span> &nbsp; max <span id="s-maxhr">—</span></div>
+        </div>
+        <div class="mini-stat">
+          <div class="stat-label">Cadence</div>
+          <div><span class="mini-val" id="s-cad">—</span><span class="mini-unit">rpm</span></div>
+          <div class="sub-val">avg <span id="s-avgcad">—</span> &nbsp; max <span id="s-maxcad">—</span></div>
+        </div>
+        <div class="mini-stat">
+          <div class="stat-label">Speed</div>
+          <div><span class="mini-val" id="s-speed">—</span><span class="mini-unit">km/h</span></div>
+          <div class="sub-val">avg <span id="s-avgspeed">—</span> &nbsp; max <span id="s-maxspeed">—</span></div>
+        </div>
+        <div class="mini-stat">
+          <div class="stat-label">Draft</div>
+          <div><span class="mini-val" id="s-draft">—</span><span class="mini-unit">w</span></div>
+          <div id="powerup-display" style="display:none;margin-top:5px">
+            <span id="powerup-badge" style="font-family:var(--sans);font-size:12px;padding:2px 7px;border-radius:3px;background:rgba(245,196,0,0.15);color:var(--yellow);"></span>
+          </div>
+        </div>
+      </div>
+
+      <div id="trip-strip">
+        <div class="trip-cell">
+          <div class="trip-label">Distance</div>
+          <div class="trip-val" id="s-dist">—</div>
+        </div>
+        <div class="trip-cell">
+          <div class="trip-label">Time</div>
+          <div class="trip-val" id="s-time">—</div>
+        </div>
+        <div class="trip-cell">
+          <div class="trip-label" id="remaining-lbl">Dist Left</div>
+          <div class="trip-val" id="remaining-val">—</div>
+        </div>
+      </div>
+
+      <div id="self-bottom">
+        <div id="peaks-block">
+          <div class="stat-label">Peaks</div>
+          <div id="peaks-grid">
+            <div class="peak-row"><span class="peak-dur">5s</span><span class="peak-val" id="pk-5s">—</span><span class="peak-unit">w</span></div>
+            <div class="peak-row"><span class="peak-dur">1m</span><span class="peak-val" id="pk-1m">—</span><span class="peak-unit">w</span></div>
+            <div class="peak-row"><span class="peak-dur">15s</span><span class="peak-val" id="pk-15s">—</span><span class="peak-unit">w</span></div>
+            <div class="peak-row"><span class="peak-dur">5m</span><span class="peak-val" id="pk-5m">—</span><span class="peak-unit">w</span></div>
+            <div class="peak-row" style="grid-column:1/-1">
+              <span class="peak-dur">20m</span><span class="peak-val" id="pk-20m">—</span><span class="peak-unit">w</span>
+            </div>
+          </div>
+        </div>
+        <div id="chart-block">
+          <div id="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#00aaff"></div>Power</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff2d55"></div>HR</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#00e87a"></div>Cadence</div>
+            <div id="chart-label">5m</div>
+          </div>
+          <canvas id="power-canvas"></canvas>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- NEARBY -->
+  <div class="section" id="sec-nearby">
+    <div class="section-header">
+      <span class="section-title">Nearby</span>
+      <span class="section-meta"><span id="f-ridercount">0</span> riders</span>
+    </div>
+    <div class="section-body">
+
+      <div id="nearby-controls">
+        <button class="tog active" id="btn-event-only">Event only</button>
+        <button class="tog active" id="btn-hide-bots">No bots</button>
+        <button class="tog" id="btn-clear-sel" style="margin-left:auto;display:none">✕ Clear</button>
+      </div>
+
+      <div id="rider-detail">
+        <div id="detail-name">—</div>
+        <div id="detail-grid">
+          <div class="detail-cell">
+            <div class="detail-label">Power</div>
+            <div class="detail-val" id="d-pwr">—</div>
+            <div class="detail-sub" id="d-wkg"></div>
+          </div>
+          <div class="detail-cell">
+            <div class="detail-label">Gap</div>
+            <div class="detail-val" id="d-gap">—</div>
+          </div>
+          <div class="detail-cell">
+            <div class="detail-label">W' Balance</div>
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span class="detail-val" id="d-wbal">—</span>
+              <span style="font-size:12px;color:var(--dim)" id="d-wbal-pct"></span>
+            </div>
+            <div id="detail-wbar-track"><div id="detail-wbar-fill"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="rider-wrap">
+        <div class="no-data" id="no-riders">Waiting for data…</div>
+        <table id="rider-table" style="display:none">
+          <thead>
+            <tr>
+              <th style="width:18px">#</th>
+              <th>Rider</th>
+              <th class="r">Gap</th>
+              <th class="r">W</th>
+              <th class="r">w/kg</th>
+              <th class="r">W'</th>
+            </tr>
+          </thead>
+          <tbody id="rider-tbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div id="footer">
+  <span>PKT <span id="f-packets">0</span></span>
+  <span>EVT <span id="f-evtsub">—</span></span>
+</div>
+
+<script>
+const state = {
+  pollTimer: null, selfId: null, selfWbalMax: null,
+  nearbyRaw: [], athleteCache: {}, powerHistory: [], hrHistory: [], cadHistory: [],
+  polls: 0, eventOnly: true, hideBots: true, selfEventSubgroup: null,
+  connected: false, selectedRiderId: null,
+};
+const MAX_HISTORY_S = 300;
+const WBAL_FULL     = 20000;
+const POLL_MS       = 1000;
+const $             = id => document.getElementById(id);
+
+function getHost() { return $('sauce-host').value.trim() || 'localhost:1080'; }
+function apiUrl(p) { return `http://${getHost()}/api/${p}`; }
+
+// ── POLLING ───────────────────────────────────────────────────────────────
+function connect() {
+  if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+  state.connected = false;
+  setStatus('connecting', getHost());
+  poll().then(() => { state.pollTimer = setInterval(poll, POLL_MS); })
+        .catch(() => setStatus('disconnected', 'unreachable'));
+}
+
+async function poll() {
+  try {
+    const [nr, sr] = await Promise.all([
+      fetch(apiUrl('nearby/v2?resource=state&resource=athlete&resource=stats&stats=true'),          { signal: AbortSignal.timeout(2000) }),
+      fetch(apiUrl('athlete/v2/watching?resource=state&resource=stats&resource=athlete&stats=true'), { signal: AbortSignal.timeout(2000) }),
+    ]);
+    if (!state.connected) { state.connected = true; setStatus('connected', getHost()); }
+    state.polls++;
+    $('f-packets').textContent  = state.polls;
+    $('last-update').textContent = new Date().toLocaleTimeString();
+    if (nr.ok) { const d = await nr.json(); state.nearbyRaw = Array.isArray(d) ? d : (d.data ?? []); processNearby(state.nearbyRaw); }
+    if (sr.ok) { const d = await sr.json(); processSelf(d.data ?? d); }
+  } catch {
+    if (state.connected) { state.connected = false; setStatus('disconnected', 'lost connection'); }
+  }
+}
+
+function setStatus(cls, txt) { $('status-dot').className = cls; $('status-text').textContent = txt; }
+
+// ── NEARBY ────────────────────────────────────────────────────────────────
+function processNearby(riders) {
+  const self = riders.find(r => r.watching === true);
+  if (self) {
+    state.selfId = self.athleteId || self.id;
+    state.selfEventSubgroup = self.state?.eventSubgroupId ?? null;
+  }
+  riders.forEach(r => {
+    const id = r.athleteId || r.id;
+    if (id && !state.athleteCache[id]) { state.athleteCache[id] = {}; fetchAthlete(id); }
+  });
+  renderNearby(riders);
+  $('f-ridercount').textContent = riders.length;
+  if (state.selectedRiderId !== null) {
+    const sel = riders.find(r => (r.athleteId || r.id) === state.selectedRiderId);
+    if (sel) updateDetailPanel(sel);
+  }
+}
+
+// ── SELF ──────────────────────────────────────────────────────────────────
+function processSelf(d) {
+  const st    = d.state  || {};
+  const stats = d.stats  || {};
+  const ps    = stats.power || {};
+
+  // Power
+  const pwr = st.power ?? null;
+  setVal('s-power', pwr, 0, true);
+  const wt = state.athleteCache[state.selfId]?.weight || d.athlete?.weight || null;
+  $('s-wkg-header').textContent = (pwr !== null && wt) ? `${(pwr/wt).toFixed(1)} w/kg` : '';
+
+  // W' balance
+  const wbal   = d.wBal ?? null;
+  const wPrime = d.athlete?.wPrime ?? WBAL_FULL;
+  if (wbal !== null) { if (!state.selfWbalMax) state.selfWbalMax = wPrime; updateWbal(wbal, wPrime); }
+
+  // HR
+  setVal('s-hr',       st.heartrate       ?? null, 0);
+  setVal('s-avghr',    stats.hr?.avg      ?? null, 0);
+  setVal('s-maxhr',    stats.hr?.max      ?? null, 0);
+
+  // Cadence
+  setVal('s-cad',      st.cadence         ?? null, 0);
+  setVal('s-avgcad',   stats.cadence?.avg ?? null, 0);
+  setVal('s-maxcad',   stats.cadence?.max ?? null, 0);
+
+  // Speed — Sauce sends km/h directly
+  setVal('s-speed',    st.speed           ?? null, 1);
+  setVal('s-avgspeed', stats.speed?.avg   ?? null, 1);
+  setVal('s-maxspeed', stats.speed?.max   ?? null, 1);
+
+  // Draft / powerup
+  setVal('s-draft', st.draft ?? null, 0);
+  const pu = st.activePowerUp;
+  $('powerup-display').style.display = pu ? 'block' : 'none';
+  if (pu) $('powerup-badge').textContent = formatPowerUp(pu);
+
+  // Power stats + peaks
+  setVal('s-avgpwr', ps.avg ?? null, 0);
+  setVal('s-maxpwr', ps.max ?? null, 0);
+  const peakMap = {};
+  (ps.peaks || []).forEach(p => { if (p.avg != null) peakMap[p.period] = p.avg; });
+  setVal('pk-5s',  peakMap[5]    ?? null, 0);
+  setVal('pk-15s', peakMap[15]   ?? null, 0);
+  setVal('pk-1m',  peakMap[60]   ?? null, 0);
+  setVal('pk-5m',  peakMap[300]  ?? null, 0);
+  setVal('pk-20m', peakMap[1200] ?? null, 0);
+
+  // Distance + time
+  const distM = st.distance ?? null;
+  $('s-dist').textContent = distM !== null ? `${(distM/1000).toFixed(2)} km` : '—';
+  const timeSec = st.time ?? stats.activeTime ?? null;
+  $('s-time').textContent = timeSec !== null ? formatDuration(timeSec) : '—';
+
+  // Remaining
+  const rem    = d.remaining;
+  const metric = d.remainingMetric ?? 'distance';
+  if (rem != null) {
+    $('remaining-val').textContent = metric === 'distance' ? `${(rem/1000).toFixed(1)} km` : formatDuration(rem);
+    $('remaining-lbl').textContent = metric === 'distance' ? 'Dist Left' : 'Time Left';
+  }
+
+  // Event subgroup
+  if (st.eventSubgroupId) $('f-evtsub').textContent = st.eventSubgroupId;
+
+  // Chart history
+  const now = Date.now() / 1000;
+  const cut = now - MAX_HISTORY_S;
+  if (pwr !== null)        state.powerHistory.push({ t: now, w: pwr });
+  if (st.heartrate != null) state.hrHistory.push({ t: now, w: st.heartrate });
+  if (st.cadence   != null) state.cadHistory.push({ t: now, w: st.cadence });
+  state.powerHistory = state.powerHistory.filter(p => p.t >= cut);
+  state.hrHistory    = state.hrHistory.filter(p => p.t >= cut);
+  state.cadHistory   = state.cadHistory.filter(p => p.t >= cut);
+  drawChart();
+}
+
+// ── W' GAUGE ─────────────────────────────────────────────────────────────
+function updateWbal(wbal, max) {
+  max = max || WBAL_FULL;
+  const pct = Math.max(0, Math.min(1, wbal / max));
+  const color = pct > 0.6 ? `hsl(${150-(1-pct)*200}deg,85%,52%)` : pct > 0.3 ? `hsl(${30-(0.3-pct)*133}deg,90%,52%)` : 'var(--red)';
+  $('wbal-num').textContent        = (wbal/1000).toFixed(1);
+  $('wbal-num').style.color        = color;
+  $('wbal-pct').textContent        = ` ${Math.round(pct*100)}%`;
+  $('wbal-bar-fill').style.width      = `${pct*100}%`;
+  $('wbal-bar-fill').style.background = color;
+}
+
+// ── POWER-UP NAME ────────────────────────────────────────────────────────
+function formatPowerUp(pu) {
+  const map = { FEATHER:'⚡ Feather', DRAFT_BOOST:'💨 Aero', BURRITO:'🌯 Burrito',
+    ANVIL:'⚓ Anvil', GHOST:'👻 Ghost', STEAMROLLER:'🚂 Steamroller',
+    LARGE_BONUS:'⭐ Bonus', SMALL_BONUS:'✦ Bonus' };
+  const key = typeof pu === 'string' ? pu : pu?.type ?? '';
+  return map[key.toUpperCase()] ?? key;
+}
+
+// ── CHART ────────────────────────────────────────────────────────────────
+function drawChart() {
+  const canvas = $('power-canvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  if (!W || !H) return;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr); ctx.clearRect(0,0,W,H);
+
+  // Grid lines
+  ctx.strokeStyle = '#1e2d3d'; ctx.lineWidth = 1;
+  [0.25, 0.5, 0.75].forEach(f => {
+    const y = H - f*H; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  });
+
+  const now = Date.now() / 1000;
+  const toX = t => ((t - (now - MAX_HISTORY_S)) / MAX_HISTORY_S) * W;
+
+  function drawSeries(hist, color, withFill) {
+    if (hist.length < 2) return;
+    const vals = hist.map(p => p.w);
+    const minV = Math.min(...vals), maxV = Math.max(...vals, minV + 1);
+    const toY  = v => H - ((v - minV) / (maxV - minV)) * H * 0.85 - 4;
+
+    if (withFill) {
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0, color.replace(')', ',0.2)').replace('rgb', 'rgba'));
+      grad.addColorStop(1, color.replace(')', ',0)').replace('rgb', 'rgba'));
+      // Fallback fill using fixed rgba
+      ctx.beginPath();
+      ctx.moveTo(toX(hist[0].t), H);
+      hist.forEach(p => ctx.lineTo(toX(p.t), toY(p.w)));
+      ctx.lineTo(toX(hist[hist.length-1].t), H);
+      ctx.closePath();
+      ctx.fillStyle = withFill;
+      ctx.fill();
+    }
+
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+    hist.forEach((p, i) => i === 0 ? ctx.moveTo(toX(p.t), toY(p.w)) : ctx.lineTo(toX(p.t), toY(p.w)));
+    ctx.stroke();
+
+    // Scale label
+    ctx.fillStyle = color; ctx.globalAlpha = 0.6;
+    ctx.font = "9px 'Roboto Mono'";
+    ctx.fillText(`${Math.round(maxV)}`, 3, toY(maxV) + 9);
+    ctx.globalAlpha = 1;
+  }
+
+  drawSeries(state.powerHistory, '#00aaff', 'rgba(0,170,255,0.15)');
+  drawSeries(state.hrHistory,    '#ff2d55', null);
+  drawSeries(state.cadHistory,   '#00e87a', null);
+}
+
+// ── NEARBY TABLE ─────────────────────────────────────────────────────────
+function renderNearby(riders) {
+  const sub = state.selfEventSubgroup;
+  let filtered = riders.filter(r => {
+    if (state.hideBots && isBot(r)) return false;
+    if (state.eventOnly && sub !== null) {
+      const rs = r.state?.eventSubgroupId ?? null;
+      if (rs !== null && rs !== sub) return false;
+    }
+    return true;
+  });
+  filtered.sort((a,b) => (a.gap??0) - (b.gap??0));
+
+  if (!filtered.length) {
+    $('rider-table').style.display = 'none';
+    $('no-riders').style.display   = 'flex';
+    return;
+  }
+  $('rider-table').style.display = '';
+  $('no-riders').style.display   = 'none';
+
+  const tbody = $('rider-tbody');
+  tbody.innerHTML = '';
+
+  filtered.forEach((r, i) => {
+    const id     = r.athleteId || r.id;
+    const isSelf = r.watching === true;
+    const cached = state.athleteCache[id] || {};
+    const name   = cached.name || r.athlete?.fullname || r.name || `#${id??'?'}`;
+    const wbal   = r.wBal ?? null;
+    const pwr    = r.state?.power ?? null;
+    const wt     = cached.weight || r.athlete?.weight || null;
+    const wkg    = (pwr !== null && wt) ? (pwr/wt).toFixed(1) : '—';
+    const gap    = r.gap ?? null;
+
+    let wcolor = 'var(--muted)';
+    if (wbal !== null) {
+      const p = wbal / WBAL_FULL;
+      wcolor = p > 0.6 ? 'var(--green)' : p > 0.3 ? 'var(--yellow)' : 'var(--red)';
+    }
+    const wpct = wbal !== null ? Math.max(0, Math.min(100, (wbal/WBAL_FULL)*100)) : 0;
+
+    const tr = document.createElement('tr');
+    if (isSelf) tr.classList.add('is-self');
+    if (id === state.selectedRiderId) tr.classList.add('selected');
+
+    tr.innerHTML = `
+      <td style="color:var(--dim);font-size:10px">${i+1}</td>
+      <td class="name-td" title="${name}">${truncate(name,18)}</td>
+      <td class="r">${gap !== null ? `<span class="gap-badge ${isSelf?'self':gap<0?'ahead':'behind'}">${isSelf?'YOU':formatGap(Math.abs(gap))}</span>` : '—'}</td>
+      <td class="r">${pwr ?? '—'}</td>
+      <td class="r" style="color:var(--muted);font-size:11px">${wkg}</td>
+      <td class="r"><div class="wbar-wrap"><div class="wbar"><div class="wbar-fill" style="width:${wpct}%;background:${wcolor}"></div></div><span class="wnum" style="color:${wcolor}">${wbal!==null?Math.round(wbal/1000)+'k':'—'}</span></div></td>`;
+
+    if (!isSelf) {
+      tr.addEventListener('click', () => {
+        if (state.selectedRiderId === id) {
+          state.selectedRiderId = null;
+          $('rider-detail').classList.remove('visible');
+          $('btn-clear-sel').style.display = 'none';
+        } else {
+          state.selectedRiderId = id;
+          $('rider-detail').classList.add('visible');
+          $('btn-clear-sel').style.display = '';
+          updateDetailPanel(r);
+        }
+        renderNearby(state.nearbyRaw);
+      });
+    }
+
+    tbody.appendChild(tr);
+  });
+}
+
+function updateDetailPanel(r) {
+  const id     = r.athleteId || r.id;
+  const cached = state.athleteCache[id] || {};
+  const name   = cached.name || r.athlete?.fullname || r.name || `#${id??'?'}`;
+  const wbal   = r.wBal ?? null;
+  const pwr    = r.state?.power ?? null;
+  const wt     = cached.weight || r.athlete?.weight || null;
+  const wPrime = r.athlete?.wPrime ?? WBAL_FULL;
+
+  $('detail-name').textContent = truncate(name, 32);
+  $('d-pwr').textContent = pwr !== null ? `${pwr}w` : '—';
+  $('d-wkg').textContent = (pwr !== null && wt) ? `${(pwr/wt).toFixed(1)} w/kg` : '';
+  $('d-gap').textContent = r.gap != null ? formatGap(Math.abs(r.gap)) : '—';
+
+  if (wbal !== null) {
+    const pct   = Math.max(0, Math.min(1, wbal / wPrime));
+    const color = pct > 0.6 ? `hsl(${150-(1-pct)*200}deg,85%,52%)` : pct > 0.3 ? `hsl(${30-(0.3-pct)*133}deg,90%,52%)` : 'var(--red)';
+    $('d-wbal').textContent          = `${(wbal/1000).toFixed(1)} kJ`;
+    $('d-wbal').style.color          = color;
+    $('d-wbal-pct').textContent      = `${Math.round(pct*100)}%`;
+    $('detail-wbar-fill').style.width      = `${pct*100}%`;
+    $('detail-wbar-fill').style.background = color;
+  } else {
+    $('d-wbal').textContent     = '—';
+    $('d-wbal-pct').textContent = '';
+    $('detail-wbar-fill').style.width = '0%';
+  }
+}
+
+// ── ATHLETE FETCH ────────────────────────────────────────────────────────
+async function fetchAthlete(id) {
+  try {
+    const res = await fetch(`http://${getHost()}/api/athlete/v1/${id}`, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return;
+    const data = await res.json();
+    const a = data?.data || data;
+    if (a) state.athleteCache[id] = { name: a.fullname || a.name || null, weight: a.weight || null };
+  } catch {}
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function setVal(id, val, decimals=0, flash=false) {
+  const el = $(id); if (!el) return;
+  if (val === null || val === undefined) { el.textContent = '—'; return; }
+  const txt = Number(val).toFixed(decimals);
+  if (el.textContent !== txt) {
+    el.textContent = txt;
+    if (flash) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+  }
+}
+
+function formatGap(s) {
+  if (s == null) return '—';
+  s = Math.abs(s);
+  return s < 60 ? `${Math.round(s)}s` : `${Math.floor(s/60)}m${String(Math.round(s%60)).padStart(2,'0')}s`;
+}
+
+function formatDuration(sec) {
+  sec = Math.round(sec);
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function isBot(r) {
+  const name = (r.athlete?.fullname || r.name || '').toLowerCase();
+  return name.includes('pace partner') || name.includes('bot') || (r.athlete?.id > 9000000);
+}
+
+function truncate(str, len) { return str.length > len ? str.slice(0, len-1) + '…' : str; }
+
+// ── EVENT LISTENERS ───────────────────────────────────────────────────────
+$('btn-event-only').addEventListener('click', () => {
+  state.eventOnly = !state.eventOnly;
+  $('btn-event-only').classList.toggle('active', state.eventOnly);
+  renderNearby(state.nearbyRaw);
+});
+$('btn-hide-bots').addEventListener('click', () => {
+  state.hideBots = !state.hideBots;
+  $('btn-hide-bots').classList.toggle('active', state.hideBots);
+  renderNearby(state.nearbyRaw);
+});
+$('btn-clear-sel').addEventListener('click', () => {
+  state.selectedRiderId = null;
+  $('rider-detail').classList.remove('visible');
+  $('btn-clear-sel').style.display = 'none';
+  renderNearby(state.nearbyRaw);
+});
+$('connect-btn').addEventListener('click', () => {
+  if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+  connect();
+});
+$('sauce-host').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; } connect(); }
+});
+window.addEventListener('resize', drawChart);
+
+connect();
+</script>
+</body>
+</html>
