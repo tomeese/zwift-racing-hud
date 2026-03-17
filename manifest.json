@@ -8,16 +8,30 @@
   "web_root": "pages",
   "windows": [
     {
-      "file": "pages/left-panel.html",
+      "file": "pages/left_panel.html",
       "id": "racing-hud-left",
-      "name": "Racing HUD",
-      "description": "Left panel race overlay with power, HR zones, W' balance, peaks, TSS, calories, and nearby rider table.",
+      "name": "Racing HUD — Left",
+      "description": "Left panel: power, HR zones, W' balance, peaks, TSS, calories, and nearby rider table.",
       "overlay": true,
       "frame": true,
       "default_bounds": {
         "width": 640,
         "height": 1080,
         "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "pages/right_panel.html",
+      "id": "racing-hud-right",
+      "name": "Racing HUD — Right",
+      "description": "Right panel: race position, gap ahead/behind, course map, groups, and chat.",
+      "overlay": true,
+      "frame": true,
+      "default_bounds": {
+        "width": 640,
+        "height": 1080,
+        "x": 640,
         "y": 0
       }
     }
