@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Zwift Racing HUD - Left Panel</title>
+<title>RaceScout HUD</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -124,6 +124,23 @@
   .trip-val   { font-size: 18px; color: var(--text); line-height: 1.2; }
   #remaining-val { color: var(--accent); }
 
+  #self-inputs { display: flex; align-items: center; gap: 10px; }
+  .self-input-label { font-family: var(--sans); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; color: var(--dim); text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
+  .self-input {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 11px; padding: 1px 5px;
+    outline: none; border-radius: 2px;
+  }
+  .self-input:focus { border-color: var(--accent); }
+
+  #metrics-strip {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 1px; background: var(--border); flex-shrink: 0;
+  }
+  .metrics-cell { background: var(--bg2); padding: 5px 12px; }
+  .metrics-label { font-family: var(--sans); font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: var(--dim); text-transform: uppercase; }
+  .metrics-val   { font-size: 18px; color: var(--text); line-height: 1.2; }
+
   #self-bottom {
     flex: 1; display: grid; grid-template-columns: auto 1fr;
     gap: 1px; background: var(--border); min-height: 0;
@@ -133,13 +150,16 @@
     display: flex; flex-direction: column; flex-shrink: 0;
   }
   #peaks-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px;
     flex: 1; align-content: space-around; margin-top: 4px;
   }
+  .peak-cell { display: flex; flex-direction: column; gap: 1px; }
   .peak-row  { display: flex; align-items: baseline; gap: 6px; }
   .peak-dur  { font-family: var(--sans); font-size: 11px; font-weight: 600; color: var(--dim); width: 28px; text-align: right; flex-shrink: 0; }
   .peak-val  { font-size: 22px; font-weight: 400; color: var(--text); line-height: 1; }
   .peak-unit { font-family: var(--sans); font-size: 11px; color: var(--dim); }
+  .peak-sub  { font-family: var(--sans); font-size: 11px; color: var(--muted); padding-left: 34px; }
+  .peak-hr   { font-family: var(--sans); font-size: 11px; color: var(--dim);   padding-left: 34px; }
 
   #chart-block {
     background: var(--bg); display: flex; flex-direction: column;
@@ -228,7 +248,7 @@
 <div id="conn-bar">
   <div id="status-dot" class="disconnected"></div>
   <span id="status-text">disconnected</span>
-  <input id="sauce-host" type="text" value="192.168.86.27:1080" placeholder="host:port" />
+  <input id="sauce-host" type="text" value="localhost:1080" placeholder="host:port" />
   <button id="connect-btn">Connect</button>
   <span id="last-update"></span>
 </div>
@@ -239,6 +259,16 @@
   <div class="section" id="sec-self">
     <div class="section-header">
       <span class="section-title">Self</span>
+      <div id="self-inputs">
+        <label class="self-input-label">MaxHR <input id="max-hr" type="number" value="172" min="100" max="230" class="self-input" style="width:40px" /></label>
+        <label class="self-input-label">Age <input id="rider-age" type="number" value="40" min="18" max="90" class="self-input" style="width:36px" /></label>
+        <label class="self-input-label">Gender
+          <select id="rider-gender" class="self-input">
+            <option value="M">M</option>
+            <option value="F">F</option>
+          </select>
+        </label>
+      </div>
     </div>
     <div class="section-body">
 
@@ -246,7 +276,7 @@
         <div id="power-block">
           <div class="stat-label">Power</div>
           <div><span class="big-val" id="s-power">—</span><span class="big-unit">w</span><span id="s-wkg" style="font-family:var(--sans);font-size:18px;color:var(--muted);margin-left:10px"></span></div>
-          <div class="sub-val">avg <span id="s-avgpwr">—</span>w &nbsp; max <span id="s-maxpwr">—</span>w</div>
+          <div class="sub-val">avg <span id="s-avgpwr">—</span>w &nbsp; max <span id="s-maxpwr">—</span>w &nbsp;·&nbsp; <span id="s-if" style="font-family:var(--sans)"></span></div>
         </div>
         <div id="wbal-block">
           <div class="stat-label">W' Balance</div>
@@ -299,16 +329,50 @@
         </div>
       </div>
 
+      <div id="metrics-strip">
+        <div class="metrics-cell">
+          <div class="metrics-label">TSS</div>
+          <div class="metrics-val" id="s-tss">—</div>
+        </div>
+        <div class="metrics-cell">
+          <div class="metrics-label">Calories</div>
+          <div class="metrics-val" id="s-cal">—</div>
+        </div>
+      </div>
+
       <div id="self-bottom">
         <div id="peaks-block">
           <div class="stat-label">Peaks</div>
           <div id="peaks-grid">
-            <div class="peak-row"><span class="peak-dur">5s</span><span class="peak-val" id="pk-5s">—</span><span class="peak-unit">w</span></div>
-            <div class="peak-row"><span class="peak-dur">1m</span><span class="peak-val" id="pk-1m">—</span><span class="peak-unit">w</span></div>
-            <div class="peak-row"><span class="peak-dur">15s</span><span class="peak-val" id="pk-15s">—</span><span class="peak-unit">w</span></div>
-            <div class="peak-row"><span class="peak-dur">5m</span><span class="peak-val" id="pk-5m">—</span><span class="peak-unit">w</span></div>
-            <div class="peak-row" style="grid-column:1/-1">
-              <span class="peak-dur">20m</span><span class="peak-val" id="pk-20m">—</span><span class="peak-unit">w</span>
+            <div class="peak-cell">
+              <div class="peak-row"><span class="peak-dur">5s</span><span class="peak-val" id="pk-5s">—</span><span class="peak-unit">w</span></div>
+              <div class="peak-sub" id="pk-5s-wkg">—</div>
+              <div class="peak-hr" id="pk-5s-hr">—</div>
+            </div>
+            <div class="peak-cell">
+              <div class="peak-row"><span class="peak-dur">1m</span><span class="peak-val" id="pk-1m">—</span><span class="peak-unit">w</span></div>
+              <div class="peak-sub" id="pk-1m-wkg">—</div>
+              <div class="peak-hr" id="pk-1m-hr">—</div>
+            </div>
+            <div class="peak-cell">
+              <div class="peak-row"><span class="peak-dur">15s</span><span class="peak-val" id="pk-15s">—</span><span class="peak-unit">w</span></div>
+              <div class="peak-sub" id="pk-15s-wkg">—</div>
+              <div class="peak-hr" id="pk-15s-hr">—</div>
+            </div>
+            <div class="peak-cell">
+              <div class="peak-row"><span class="peak-dur">5m</span><span class="peak-val" id="pk-5m">—</span><span class="peak-unit">w</span></div>
+              <div class="peak-sub" id="pk-5m-wkg">—</div>
+              <div class="peak-hr" id="pk-5m-hr">—</div>
+            </div>
+            <div class="peak-cell">
+              <div class="peak-row"><span class="peak-dur">30s</span><span class="peak-val" id="pk-30s">—</span><span class="peak-unit">w</span></div>
+              <div class="peak-sub" id="pk-30s-wkg">—</div>
+              <div class="peak-hr" id="pk-30s-hr">—</div>
+            </div>
+            <div class="peak-cell">
+              <div class="peak-row"><span class="peak-dur">20m</span><span class="peak-val" id="pk-20m">—</span><span class="peak-unit">w</span></div>
+              <div class="peak-sub" id="pk-20m-wkg">—</div>
+              <div class="peak-hr" id="pk-20m-hr">—</div>
             </div>
           </div>
         </div>
@@ -396,7 +460,7 @@
 <script>
 const state = {
   pollTimer: null, selfId: null, selfWbalMax: null, selfFtp: null, selfWeight: null,
-  nearbyRaw: [], athleteCache: {}, powerHistory: [], hrHistory: [],
+  nearbyRaw: [], athleteCache: {}, powerHistory: [], hrHistory: [], fullPowerHistory: [],
   polls: 0, eventOnly: true, hideBots: true, selfEventSubgroup: null,
   connected: false, selectedRiderId: null,
 };
@@ -405,7 +469,7 @@ const WBAL_FULL     = 20000;
 const POLL_MS       = 1000;
 const $             = id => document.getElementById(id);
 
-function getHost() { return $('sauce-host').value.trim() || '192.168.86.27:1080'; }
+function getHost() { return $('sauce-host').value.trim() || 'localhost:1080'; }
 function apiUrl(p) { return `http://${getHost()}/api/${p}`; }
 
 // ── POLLING ───────────────────────────────────────────────────────────────
@@ -463,10 +527,18 @@ function processSelf(d) {
 
   // Power
   const pwr = st.power ?? null;
-  setVal('s-power', pwr, 0, true);
+  setVal('s-power', pwr, 0, false);
   const wt = state.athleteCache[state.selfId]?.weight || d.athlete?.weight || null;
-  $('s-wkg').textContent = (pwr !== null && wt) ? `${(pwr/wt).toFixed(1)} w/kg` : '';
   if (wt) state.selfWeight = wt;
+  const ftp = state.selfFtp || null;
+  const pwrColor = (pwr !== null && ftp) ? zoneColor(pwr, ftp) : 'var(--bright)';
+  $('s-power').style.color = pwrColor;
+  if (pwr !== null && wt) {
+    $('s-wkg').textContent   = `${(pwr/wt).toFixed(1)} w/kg`;
+    $('s-wkg').style.color   = pwrColor;
+  } else {
+    $('s-wkg').textContent = '';
+  }
 
   // W' balance
   const wbal   = d.wBal ?? null;
@@ -475,9 +547,13 @@ function processSelf(d) {
   if (d.athlete?.ftp) state.selfFtp = d.athlete.ftp;
 
   // HR
-  setVal('s-hr',       st.heartrate       ?? null, 0);
-  setVal('s-avghr',    stats.hr?.avg      ?? null, 0);
-  setVal('s-maxhr',    stats.hr?.max      ?? null, 0);
+  const hr = st.heartrate ?? null;
+  setVal('s-hr',    hr,                 0);
+  setVal('s-avghr', stats.hr?.avg ?? null, 0);
+  setVal('s-maxhr', stats.hr?.max ?? null, 0);
+  if (hr !== null) {
+    $('s-hr').style.color = hrZoneColor(hr, getMaxHr());
+  }
 
   // Cadence
   setVal('s-cad',      st.cadence         ?? null, 0);
@@ -498,18 +574,41 @@ function processSelf(d) {
   // Power stats + peaks
   setVal('s-avgpwr', ps.avg ?? null, 0);
   setVal('s-maxpwr', ps.max ?? null, 0);
-  const peakMap = {};
-  (ps.peaks || []).forEach(p => { if (p.avg != null) peakMap[p.period] = p.avg; });
-  setVal('pk-5s',  peakMap[5]    ?? null, 0);
-  setVal('pk-15s', peakMap[15]   ?? null, 0);
-  setVal('pk-1m',  peakMap[60]   ?? null, 0);
-  setVal('pk-5m',  peakMap[300]  ?? null, 0);
-  setVal('pk-20m', peakMap[1200] ?? null, 0);
+  const peakMap   = {};
+  const peakHrMap = {};
+  (ps.peaks  || []).forEach(p => { if (p.avg  != null) peakMap[p.period]   = p.avg;  });
+  (stats.hr?.peaks || []).forEach(p => { if (p.avg != null) peakHrMap[p.period] = p.avg; });
+
+  const timeSec = st.time ?? stats.activeTime ?? null;  // ride elapsed seconds
+
+  const PEAK_PERIODS = [
+    { id: '5s',  period: 5    },
+    { id: '15s', period: 15   },
+    { id: '30s', period: 30   },
+    { id: '1m',  period: 60   },
+    { id: '5m',  period: 300  },
+    { id: '20m', period: 1200 },
+  ];
+  const wt2 = state.selfWeight || null;
+  PEAK_PERIODS.forEach(({ id, period }) => {
+    // Don't show peak if ride hasn't lasted long enough
+    const valid = timeSec !== null && timeSec >= period;
+    const w = valid ? (peakMap[period] ?? null) : null;
+    setVal(`pk-${id}`, w, 0);
+    const wkgEl = $(`pk-${id}-wkg`);
+    const hrEl  = $(`pk-${id}-hr`);
+    if (wkgEl) wkgEl.textContent = (w !== null && wt2) ? `${(w/wt2).toFixed(1)} w/kg` : '—';
+    let peakHr = valid ? (peakHrMap[period] ?? null) : null;
+    if (valid && peakHr === null) peakHr = calcPeakHr(state.hrHistory, period);
+    if (hrEl) {
+      hrEl.textContent = peakHr !== null ? `${Math.round(peakHr)} bpm` : '—';
+      hrEl.style.color = peakHr !== null ? hrZoneColor(peakHr, getMaxHr()) : 'var(--dim)';
+    }
+  });
 
   // Distance + time + laps
   const distM = st.distance ?? null;
   $('s-dist').textContent = distM !== null ? `${(distM/1000).toFixed(2)} km` : '—';
-  const timeSec = st.time ?? stats.activeTime ?? null;
   $('s-time').textContent = timeSec !== null ? formatDuration(timeSec) : '—';
   const laps = st.laps ?? d.lapCount ?? null;
   $('s-laps').textContent = laps !== null ? String(laps) : '—';
@@ -522,16 +621,50 @@ function processSelf(d) {
     $('remaining-lbl').textContent = metric === 'distance' ? 'Dist Left' : 'Time Left';
   }
 
+  // TSS + Calories
+  const np2    = calcNP(state.fullPowerHistory);
+  const ftpV   = state.selfFtp || null;
+  if (np2 !== null && ftpV && timeSec) {
+    const ifV = np2 / ftpV;
+    const tss = (timeSec * ifV * ifV * 100) / 3600;
+    $('s-tss').textContent = Math.round(tss);
+  } else {
+    $('s-tss').textContent = '—';
+  }
+  if (hr !== null && timeSec && wt2) {
+    const age    = parseInt($('rider-age')?.value,    10) || 40;
+    const gender = $('rider-gender')?.value || 'M';
+    const cal    = calcKeytelCalories(hr, wt2, age, gender, timeSec);
+    $('s-cal').textContent = Math.round(cal);
+  } else {
+    $('s-cal').textContent = '—';
+  }
+
   // Event subgroup
   if (st.eventSubgroupId) $('f-evtsub').textContent = st.eventSubgroupId;
 
-  // Chart history
+  // Chart history (capped at 5m for display)
   const now = Date.now() / 1000;
   const cut = now - MAX_HISTORY_S;
-  if (pwr !== null)         state.powerHistory.push({ t: now, w: pwr });
+  if (pwr !== null) {
+    state.powerHistory.push({ t: now, w: pwr });
+    state.fullPowerHistory.push({ t: now, w: pwr }); // unbounded for NP
+  }
   if (st.heartrate != null) state.hrHistory.push({ t: now, w: st.heartrate });
   state.powerHistory = state.powerHistory.filter(p => p.t >= cut);
   state.hrHistory    = state.hrHistory.filter(p => p.t >= cut);
+
+  // Normalized Power + Intensity Factor
+  const np = calcNP(state.fullPowerHistory);
+  const ftpVal = state.selfFtp || null;
+  if (np !== null && ftpVal) {
+    const ifVal = np / ftpVal;
+    $('s-if').textContent = `IF ${ifVal.toFixed(2)}`;
+    $('s-if').style.color = zoneColor(np, ftpVal);
+  } else {
+    $('s-if').textContent = '';
+  }
+
   drawChart();
 }
 
@@ -556,6 +689,19 @@ function formatPowerUp(pu) {
   return map[key.toUpperCase()] ?? key;
 }
 
+// ── NORMALIZED POWER ─────────────────────────────────────────────────────
+function calcNP(hist) {
+  if (hist.length < 30) return null; // need at least 30s
+  // 30s rolling average at each point
+  const rolling = hist.map((p, i) => {
+    const slice = hist.slice(Math.max(0, i - 29), i + 1);
+    return slice.reduce((s, x) => s + x.w, 0) / slice.length;
+  });
+  // Mean of 4th powers, then 4th root
+  const mean4 = rolling.reduce((s, v) => s + Math.pow(v, 4), 0) / rolling.length;
+  return Math.pow(mean4, 0.25);
+}
+
 // ── CHART ────────────────────────────────────────────────────────────────
 const ZONE_COLORS = [
   { pct: 0,    color: '#555566' }, // Z1 < 55%
@@ -572,6 +718,48 @@ function zoneColor(watts, ftp) {
   let c = ZONE_COLORS[0].color;
   for (const z of ZONE_COLORS) { if (r >= z.pct) c = z.color; else break; }
   return c;
+}
+
+function getMaxHr() {
+  return parseInt($('max-hr')?.value, 10) || 172;
+}
+
+// HR zones scaled to maxHr (using your BPM breakpoints at maxHr=172)
+function hrZoneColor(bpm, maxHr) {
+  const pct = bpm / maxHr;
+  if (pct >= 0.872) return '#ff2d55'; // Z5 VO2 Max  (150/172)
+  if (pct >= 0.779) return '#f5c400'; // Z4 Threshold (134/172)
+  if (pct >= 0.686) return '#00e87a'; // Z3 Tempo     (118/172)
+  if (pct >= 0.599) return '#4488ff'; // Z2 Aerobic   (103/172)
+  return '#555566';                    // Z1 Recovery
+}
+
+// Calculate peak average HR over `durationS` seconds from recorded history
+function calcPeakHr(hist, durationS) {
+  if (hist.length < 2) return null;
+  let best = null;
+  for (let i = 0; i < hist.length; i++) {
+    const windowStart = hist[i].t;
+    const slice = hist.filter(p => p.t >= windowStart && p.t < windowStart + durationS);
+    if (slice.length < Math.min(durationS * 0.8, hist.length)) continue; // need 80% coverage
+    const avg = slice.reduce((s, p) => s + p.w, 0) / slice.length;
+    if (best === null || avg > best) best = avg;
+  }
+  return best;
+}
+
+// Keytel et al. (2005) calorie estimation from HR
+// Male:   Cal/min = (-55.0969 + 0.6309×HR + 0.1988×weight_kg + 0.2017×age) / 4.184
+// Female: Cal/min = (-20.4022 + 0.4472×HR - 0.1263×weight_kg + 0.074×age)  / 4.184
+function calcKeytelCalories(hr, weightKg, age, gender, durationS) {
+  const durationMin = durationS / 60;
+  let calPerMin;
+  if (gender === 'F') {
+    calPerMin = (-20.4022 + 0.4472 * hr - 0.1263 * weightKg + 0.074 * age) / 4.184;
+  } else {
+    calPerMin = (-55.0969 + 0.6309 * hr + 0.1988 * weightKg + 0.2017 * age) / 4.184;
+  }
+  return Math.max(0, calPerMin * durationMin);
 }
 
 function smooth(hist, window = 5) {
@@ -626,7 +814,7 @@ function drawChart() {
     ctx.lineTo(toX(p1.t), toY(p1.w));
     ctx.lineTo(toX(p1.t), H);
     ctx.closePath();
-    ctx.fillStyle = `rgba(${hexToRgb(col)},0.25)`;
+    ctx.fillStyle = `rgba(${hexToRgb(col)},0.45)`;
     ctx.fill();
   }
 
@@ -635,7 +823,7 @@ function drawChart() {
     const p0 = smoothed[i-1], p1 = smoothed[i];
     const col = zoneColor((p0.w + p1.w) / 2, ftp);
     ctx.beginPath();
-    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
     ctx.moveTo(toX(p0.t), toY(p0.w));
     ctx.lineTo(toX(p1.t), toY(p1.w));
     ctx.stroke();
@@ -647,8 +835,8 @@ function drawChart() {
   const ftpY = toY(ftp);
   ctx.beginPath(); ctx.moveTo(0, ftpY); ctx.lineTo(W, ftpY); ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = "9px 'Roboto Mono'";
-  ctx.fillText(`FTP ${ftp}`, 3, ftpY - 3);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = "bold 12px 'Roboto Mono'";
+  ctx.fillText(`FTP ${ftp}`, 3, ftpY - 4);
 
   // ── HR overlay (normalized to its own scale) ──
   const hrHist = state.hrHistory;
@@ -656,22 +844,25 @@ function drawChart() {
     const hrVals = hrHist.map(p => p.w);
     const minHr  = Math.min(...hrVals), maxHr = Math.max(...hrVals, minHr + 1);
     const toYhr  = v => H - ((v - minHr) / (maxHr - minHr)) * H * 0.6 - 4;
-    const sHr    = smooth(hrHist, 5);
-    ctx.beginPath(); ctx.strokeStyle = '#ff2d55'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.globalAlpha = 0.8;
+    const sHr    = smooth(hrHist, 15);
+    ctx.beginPath(); ctx.strokeStyle = '#ff2d55'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.globalAlpha = 0.9;
     sHr.forEach((p, i) => i === 0 ? ctx.moveTo(toX(p.t), toYhr(p.w)) : ctx.lineTo(toX(p.t), toYhr(p.w)));
     ctx.stroke(); ctx.globalAlpha = 1;
-    ctx.fillStyle = '#ff2d55'; ctx.globalAlpha = 0.5;
-    ctx.font = "9px 'Roboto Mono'";
-    ctx.fillText(`${Math.round(maxHr)}`, W - 24, toYhr(maxHr) + 9);
+    ctx.fillStyle = '#ff2d55'; ctx.globalAlpha = 0.85;
+    ctx.font = "bold 12px 'Roboto Mono'";
+    ctx.fillText(`${Math.round(maxHr)}`, W - 28, toYhr(maxHr) + 10);
     ctx.globalAlpha = 1;
   }
 
   // ── Max power label ──
-  ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = "9px 'Roboto Mono'";
-  ctx.fillText(`${Math.round(maxW)}w`, 3, toY(maxW) + 9);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = "bold 12px 'Roboto Mono'";
+  ctx.fillText(`${Math.round(maxW)}w`, 3, toY(maxW) + 10);
 }
 
 // ── NEARBY TABLE ─────────────────────────────────────────────────────────
+const NEARBY_WINDOW = 11;  // visible rows
+const SELF_TARGET   = 5;   // desired self position (1-based)
+
 function renderNearby(riders) {
   const sub = state.selfEventSubgroup;
   let filtered = riders.filter(r => {
@@ -692,10 +883,26 @@ function renderNearby(riders) {
   $('rider-table').style.display = '';
   $('no-riders').style.display   = 'none';
 
+  // Find self index in sorted list
+  const selfIdx = filtered.findIndex(r => r.watching === true);
+
+  // Calculate window start so self lands at SELF_TARGET (0-based: position 4)
+  let winStart = 0;
+  if (selfIdx >= 0) {
+    winStart = selfIdx - (SELF_TARGET - 1);
+    winStart = Math.max(0, winStart);
+    // If not enough riders below self to fill window, shift start up
+    const winEnd = winStart + NEARBY_WINDOW;
+    if (winEnd > filtered.length) {
+      winStart = Math.max(0, filtered.length - NEARBY_WINDOW);
+    }
+  }
+  const visible = filtered.slice(winStart, winStart + NEARBY_WINDOW);
+
   const tbody = $('rider-tbody');
   tbody.innerHTML = '';
 
-  filtered.forEach((r, i) => {
+  visible.forEach((r, i) => {
     const id     = r.athleteId || r.id;
     const isSelf = r.watching === true;
     const cached = state.athleteCache[id] || {};
@@ -705,6 +912,7 @@ function renderNearby(riders) {
     const wt     = cached.weight || r.athlete?.weight || null;
     const wkg    = (pwr !== null && wt) ? (pwr/wt).toFixed(1) : '—';
     const gap    = r.gap ?? null;
+    const absPos = winStart + i + 1;  // position in full sorted list
 
     let wcolor = 'var(--muted)';
     if (wbal !== null) {
@@ -718,7 +926,7 @@ function renderNearby(riders) {
     if (id === state.selectedRiderId) tr.classList.add('selected');
 
     tr.innerHTML = `
-      <td style="color:var(--dim);font-size:10px">${i+1}</td>
+      <td style="color:var(--dim);font-size:10px">${absPos}</td>
       <td class="name-td" title="${name}">${truncate(name,18)}</td>
       <td class="r">${gap !== null ? `<span class="gap-badge ${isSelf?'self':gap<0?'ahead':'behind'}">${isSelf?'YOU':formatGap(Math.abs(gap))}</span>` : '—'}</td>
       <td class="r">${pwr ?? '—'}</td>

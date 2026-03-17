@@ -2,23 +2,25 @@
 
 A browser-based racing overlay for Zwift, designed for ultrawide monitors. Two standalone HTML panels sit side-by-side and pull live data from [Sauce for Zwift](https://www.sauce.llc/) via its local REST API.
 
+> TSS®, Normalized Power® (NP®), and Intensity Factor® (IF®) are registered trademarks of TrainingPeaks, LLC, used here for display purposes only. This project is not affiliated with TrainingPeaks.
+
 ---
 
 ## Panels
 
-### `index.html` — Left Panel
-- Live power, W' balance gauge and bar
-- Heart rate, cadence, speed, draft
-- Trip stats: distance, elapsed time, distance/time remaining
-- Power peaks: 5s, 15s, 1m, 5m, 20m
-- Rolling 5-minute chart: power, HR, cadence
-- Nearby riders table with gap, w/kg, W' balance
+### `left-panel.html`
+- Live power with zone coloring, w/kg, and IF (Intensity Factor)
+- W' balance gauge with color-coded bar
+- Heart rate with zone coloring, cadence, speed, draft
+- Trip stats: distance, elapsed time, laps, distance/time remaining
+- TSS (Training Stress Score) and estimated calories (Keytel formula)
+- Power peaks: 5s / 15s / 30s / 1m / 5m / 20m — each with w/kg and peak HR
+- Rolling 5-minute chart: zone-colored power fill, smoothed line, HR overlay, FTP reference line
+- Nearby riders table: gap, watts, w/kg, W' balance bar
 
-### `right.html` — Right Panel
-- Race position, gap to rider ahead, gap to rider behind
-- Mini-map with three rendering modes (see below)
-- Groups visualization: gap between groups, avg w/kg, size, your position within your group
-- In-game chat feed (if exposed by Sauce API)
+### `right-panel.html`
+- Race position, gap to rider ahead, gap to rider behind (lap-aware)
+- Course map, groups visualization, and chat via embedded Sauce pages
 
 ---
 
@@ -28,11 +30,12 @@ Both panels are single self-contained HTML files with no build step, no framewor
 
 ```
 zwift-racing-hud/
-├── left_panel.html     # Left panel
-├── right_panel.html     # Right panel
+├── pages/
+│   ├── left-panel.html
+│   └── right-panel.html
+├── manifest.json
 └── README.md
 ```
-![Architecture](docs/architecture.png)
 
 ### Data flow
 
@@ -42,8 +45,8 @@ Sauce for Zwift (localhost:1080)
         │  REST polling, 1s interval
         ▼
   Browser (Chrome)
-  ├── panel_left.html
-  └── panel_right  →  nearby/v2, athlete/v2/watching, chat (probed)
+  ├── left-panel.html   →  nearby/v2, athlete/v2/watching, athlete/v1/:id
+  └── right-panel.html  →  nearby/v2, athlete/v1/:id (+ Sauce embedded pages)
 ```
 
 - **No WebSocket.** Both panels use `setInterval` + `fetch` at 1-second intervals.
@@ -56,20 +59,9 @@ Sauce for Zwift (localhost:1080)
 |---|---|---|
 | `nearby/v2` | Both | Rider positions, gaps, power, W' balance |
 | `athlete/v2/watching` | Left | Self telemetry: power, HR, cadence, speed, peaks |
-| `groups/v2` | Right | Race group detection |
-| `athlete/v1/:id` | Both | Athlete name and weight (cached) |
-| `chat/v1` (probed) | Right | In-game chat feed |
-| `worlds/v1` et al (probed) | Right | Route shape for mini-map |
+| `athlete/v1/:id` | Both | Athlete name and weight (cached per session) |
 
-### Mini-map rendering
-
-`right.html` probes for route geometry on connect and falls back gracefully:
-
-1. **Route map** — if a route shape endpoint returns a point array, draws the course as a polyline and plots rider dots on it. Supports `{x,y}`, `{lat,lng}`, and `[lng,lat]` coordinate formats. Riders with a `roadPosition` field (0–1 fraction) are interpolated onto the route.
-2. **Scatter** — if no route shape is found but riders have `x`/`y` world coordinates, renders a dot-plot.
-3. **Gap chart** — horizontal linear fallback. Left = ahead (red), right = behind (green). Your position is centered. Riders within 20 seconds get their gap labelled.
-
-The active mode is shown in the bottom-right corner of the map panel.
+The right panel also embeds Sauce's built-in pages (`geo.html`, `groups.html`, `chat.html`) directly via iframes.
 
 ---
 
@@ -86,32 +78,37 @@ The active mode is shown in the bottom-right corner of the map panel.
 ### Quickstart (no server needed)
 
 1. Start Zwift and make sure Sauce for Zwift is running
-2. Open `left_panel.html` in Chrome — drag to the left half of your monitor
-3. Open `right_panel.html` in Chrome — drag to the right half
+2. Open `pages/left-panel.html` in Chrome — drag to the left side of your monitor
+3. Open `pages/right-panel.html` in Chrome — drag to the right side
 4. Both panels default to `localhost:1080` and connect automatically
 
-That's it. No install, no server, no build step.
+No install, no server, no build step.
 
 ### If Sauce is running on a different machine
 
-Edit the host field in the connection bar at the top of either panel, or change the default value in the HTML:
+Edit the host field in the connection bar at the top of either panel, or change the default in the HTML:
 
 ```html
 <input id="sauce-host" ... value="192.168.86.X:1080" ...>
 ```
 
-### Dev iteration
+### Rider inputs (left panel)
 
-```bash
-npx live-server --port=3000              # left panel with auto-reload
-npx live-server --port=3001 --entry-file=right.html  # right panel
-```
+The **Self** section header contains three inputs used for HR zone coloring and calorie estimation:
+
+| Field | Default | Purpose |
+|---|---|---|
+| MaxHR | 172 | HR zone thresholds (scales proportionally) |
+| Age | 40 | Keytel calorie formula |
+| Gender | M | Keytel calorie formula |
+
+These are not persisted — update them at the start of each session.
 
 ---
 
 ## Design system
 
-Both panels share an identical set of CSS variables and typography. Do not override these in one panel without updating the other.
+Both panels share an identical set of CSS variables and typography.
 
 | Token | Value | Usage |
 |---|---|---|
@@ -120,27 +117,28 @@ Both panels share an identical set of CSS variables and typography. Do not overr
 | `--bg3` | `#111820` | Input fields, inner fills |
 | `--border` | `#2a3f54` | Borders, gaps between cells |
 | `--accent` | `#00aaff` | Self highlight, active states |
-| `--green` | `#00e87a` | Positive / behind / healthy |
-| `--red` | `#ff2d55` | Negative / ahead / danger |
-| `--yellow` | `#f5c400` | Warnings, power-ups, selected |
+| `--green` | `#00e87a` | Positive / behind / healthy W' |
+| `--red` | `#ff2d55` | Negative / ahead / depleted W' |
+| `--yellow` | `#f5c400` | Warnings, power-ups, selected rider |
 
-Fonts: **Roboto Mono** (numbers and code values) + **Barlow Condensed** (labels and badges), both loaded from Google Fonts. System font fallbacks are defined for offline use.
+Power zone colors: Z1 `#555566` · Z2 `#4488ff` · Z3 `#00e87a` · Z4 `#f5c400` · Z5 `#ff7a00` · Z6+ `#ff2d55`
 
----
-
-## Distribution
-
-To share with others:
-
-1. Zip `left_panel.html`, `right_panel.html`, and this `README.md`
-2. Recipients open both files directly in Chrome — no server required
-3. Sauce for Zwift defaults to `localhost:1080` so no configuration is needed for most users
+Fonts: **Roboto Mono** (numbers and data values) + **Barlow Condensed** (labels and badges), loaded from Google Fonts.
 
 ---
 
-## Known limitations / future work
+## Notes and limitations
 
-- Groups `v2` endpoint shape is version-dependent — field mapping may need adjustment based on your Sauce version
-- Chat endpoint is probed but not confirmed available on all Sauce builds
-- Route geometry endpoints are probed opportunistically — map falls back to gap chart if none respond
-- No persistent settings — host preference resets on page reload
+- **FTP** is read from the Sauce API (`athlete.ftp`). IF, NP, and TSS will show `—` until this value is available and 30+ seconds of ride data have accumulated.
+- **Calories** use current HR as a proxy for average effort — accurate over steady-state efforts, less so for highly variable intensity.
+- **Peak HR** per duration is calculated from the recorded HR history (5-minute window). Short peaks (5s, 15s, 30s) populate quickly; longer peaks require sufficient ride time.
+- **Peaks** display `—` until elapsed ride time exceeds the peak duration — no premature values.
+- No persistent settings — host and rider inputs reset on page reload.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+This project is not affiliated with or endorsed by Zwift or Sauce for Zwift.

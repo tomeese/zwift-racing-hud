@@ -1,0 +1,25 @@
+{
+  "manifest_version": 1,
+  "name": "Racing HUD",
+  "description": "Race telemetry overlay for Zwift — power zones, W' balance, HR, peaks, TSS, calories, and nearby riders.",
+  "author": "Tom Meese",
+  "website_url": "https://github.com/tomeese/zwift-racing-hud",
+  "version": "1.0.0",
+  "web_root": "pages",
+  "windows": [
+    {
+      "file": "pages/left-panel.html",
+      "id": "racing-hud-left",
+      "name": "Racing HUD",
+      "description": "Left panel race overlay with power, HR zones, W' balance, peaks, TSS, calories, and nearby rider table.",
+      "overlay": true,
+      "frame": true,
+      "default_bounds": {
+        "width": 640,
+        "height": 1080,
+        "x": 0,
+        "y": 0
+      }
+    }
+  ]
+}
