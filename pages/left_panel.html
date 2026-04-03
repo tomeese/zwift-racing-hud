@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RaceScout HUD</title>
+<title>RaceScout HUD v2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -31,21 +31,17 @@
 
   /* ── CONN BAR ── */
   #conn-bar {
-    display: flex; align-items: center; gap: 8px; padding: 5px 10px;
+    display: flex; align-items: center; gap: 8px; padding: 4px 10px;
     background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; font-size: 11px;
   }
-  #conn-bar input {
-    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
-    font-family: var(--mono); font-size: 11px; padding: 2px 7px;
-    flex: 1; outline: none; border-radius: 2px; min-width: 0;
-  }
-  #conn-bar input:focus { border-color: var(--accent); }
   #conn-bar button {
     background: var(--border); border: 1px solid var(--dim); color: var(--bright);
     font-family: var(--mono); font-size: 11px; padding: 2px 10px;
     cursor: pointer; border-radius: 2px; flex-shrink: 0;
   }
   #conn-bar button:hover { background: var(--dim); }
+  #btn-settings { font-size: 14px; padding: 1px 8px; }
+  #conn-host-display { color: var(--muted); font-size: 11px; flex: 1; }
   #status-dot {
     width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
     background: var(--muted); transition: background 0.3s;
@@ -53,24 +49,85 @@
   #status-dot.connected    { background: var(--green); box-shadow: 0 0 6px var(--green); }
   #status-dot.connecting   { background: var(--yellow); animation: blink 1s infinite; }
   #status-dot.disconnected { background: var(--red); }
-  #status-text { color: var(--muted); flex-shrink: 0; }
-  #last-update { margin-left: auto; color: var(--dim); font-size: 10px; flex-shrink: 0; }
+  #last-update { color: var(--dim); font-size: 10px; flex-shrink: 0; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* ── SETTINGS MODAL ── */
+  #settings-overlay {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.7); align-items: center; justify-content: center;
+  }
+  #settings-overlay.open { display: flex; }
+  #settings-modal {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
+    padding: 20px 24px; min-width: 280px;
+  }
+  #settings-modal h2 {
+    font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.12em;
+    color: var(--dim); text-transform: uppercase; margin-bottom: 16px;
+  }
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px; gap: 12px;
+  }
+  .setting-label {
+    font-family: var(--sans); font-size: 12px; font-weight: 600;
+    letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase;
+  }
+  .setting-input {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 12px; padding: 3px 8px;
+    outline: none; border-radius: 2px; width: 80px; text-align: right;
+  }
+  .setting-input:focus { border-color: var(--accent); }
+  .setting-combo { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+  .setting-select {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 12px; padding: 3px 6px;
+    outline: none; border-radius: 2px; width: 160px; cursor: pointer;
+  }
+  .setting-select:focus { border-color: var(--accent); }
+  .setting-new-input {
+    background: var(--bg3); border: 1px solid var(--accent); color: var(--text);
+    font-family: var(--mono); font-size: 12px; padding: 3px 8px;
+    outline: none; border-radius: 2px; width: 160px;
+  }
+  .setting-new-input:focus { border-color: var(--bright); }
+  #settings-close {
+    margin-top: 8px; width: 100%; padding: 5px;
+    background: var(--accent); border: none; color: var(--bg);
+    font-family: var(--sans); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; border-radius: 2px;
+  }
+  #settings-close:hover { background: var(--muted); }
 
   /* ── LAYOUT ── */
   #sections {
     flex: 1; display: flex; flex-direction: column;
-    gap: 1px; background: var(--border); overflow: hidden;
+    background: var(--border); overflow: hidden; position: relative;
   }
   .section {
     background: var(--bg); display: flex; flex-direction: column; min-height: 0; overflow: hidden;
   }
-  #sec-self   { flex: 2.4; }
-  #sec-nearby { flex: 1.6; }
+  #sec-top    { flex: none; overflow: hidden; }  /* height set by JS */
+  #sec-chart  { flex: 1;    min-height: 60px; display: flex; flex-direction: column; }
+  #sec-nearby { flex: none; min-height: 60px; } /* height set by JS */
+
+  .drag-handle {
+    flex-shrink: 0; height: 6px; background: var(--border);
+    cursor: ns-resize; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s; user-select: none;
+  }
+  .drag-handle:hover, .drag-handle.dragging { background: var(--accent); }
+  .drag-handle::after {
+    content: ''; display: block; width: 32px; height: 2px;
+    border-radius: 1px; background: var(--dim); transition: background 0.15s;
+  }
+  .drag-handle:hover::after, .drag-handle.dragging::after { background: var(--bg); }
 
   .section-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 4px 12px; background: var(--bg2);
+    padding: 3px 12px; background: var(--bg2);
     border-bottom: 1px solid var(--border); flex-shrink: 0;
   }
   .section-title {
@@ -80,27 +137,27 @@
   .section-meta { font-size: 11px; color: var(--muted); }
 
   /* ── SELF SECTION ── */
-  #sec-self .section-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  #sec-top .section-body { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 
   #self-top {
     display: grid; grid-template-columns: 1fr 1fr;
     gap: 1px; background: var(--border); flex-shrink: 0;
   }
-  #power-block, #wbal-block { background: var(--bg); padding: 10px 16px; }
+  #power-block, #wbal-block { background: var(--bg); padding: 7px 16px; }
 
   .stat-label {
     font-family: var(--sans); font-size: 11px; font-weight: 600;
-    letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 3px;
+    letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 2px;
   }
-  .big-val  { font-size: 62px; font-weight: 500; line-height: 1; color: var(--bright); }
+  .big-val  { font-size: 56px; font-weight: 500; line-height: 1; color: var(--bright); }
   .big-unit { font-size: 15px; color: var(--muted); margin-left: 3px; }
-  .sub-val  { font-size: 12px; color: var(--dim); margin-top: 4px; }
+  .sub-val  { font-size: 11px; color: var(--dim); margin-top: 2px; }
 
-  #wbal-num { font-size: 40px; font-weight: 500; line-height: 1; color: var(--green); transition: color 0.5s; }
-  #wbal-pct { font-size: 14px; color: var(--dim); margin-left: 6px; }
+  #wbal-num { font-size: 36px; font-weight: 500; line-height: 1; color: var(--green); transition: color 0.5s; }
+  #wbal-pct { font-size: 13px; color: var(--dim); margin-left: 6px; }
   #wbal-bar-track {
-    height: 10px; background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 1px; overflow: hidden; margin-top: 8px;
+    height: 8px; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 1px; overflow: hidden; margin-top: 6px;
   }
   #wbal-bar-fill {
     height: 100%; width: 100%; border-radius: 1px;
@@ -111,62 +168,49 @@
     display: grid; grid-template-columns: repeat(4, 1fr);
     gap: 1px; background: var(--border); flex-shrink: 0;
   }
-  .mini-stat { background: var(--bg); padding: 8px 12px 7px; }
-  .mini-val  { font-size: 30px; font-weight: 400; color: var(--bright); line-height: 1; }
-  .mini-unit { font-family: var(--sans); font-size: 11px; color: var(--dim); display: block; margin-top: 2px; }
+  .mini-stat { background: var(--bg); padding: 5px 12px; }
+  .mini-val  { font-size: 26px; font-weight: 400; color: var(--bright); line-height: 1; }
+  .mini-unit { font-family: var(--sans); font-size: 10px; color: var(--dim); display: block; margin-top: 1px; }
 
   #trip-strip {
     display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
     gap: 1px; background: var(--border); flex-shrink: 0;
   }
-  .trip-cell { background: var(--bg2); padding: 5px 12px; }
+  .trip-cell { background: var(--bg2); padding: 4px 12px; }
   .trip-label { font-family: var(--sans); font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: var(--dim); text-transform: uppercase; }
-  .trip-val   { font-size: 18px; color: var(--text); line-height: 1.2; }
+  .trip-val   { font-size: 16px; color: var(--text); line-height: 1.2; }
   #remaining-val { color: var(--accent); }
 
-  #self-inputs { display: flex; align-items: center; gap: 10px; }
-  .self-input-label { font-family: var(--sans); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; color: var(--dim); text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
-  .self-input {
-    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
-    font-family: var(--mono); font-size: 11px; padding: 1px 5px;
-    outline: none; border-radius: 2px;
-  }
-  .self-input:focus { border-color: var(--accent); }
-
   #metrics-strip {
-    display: grid; grid-template-columns: 1fr 1fr;
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
     gap: 1px; background: var(--border); flex-shrink: 0;
   }
-  .metrics-cell { background: var(--bg2); padding: 5px 12px; }
+  .metrics-cell { background: var(--bg2); padding: 4px 12px; }
   .metrics-label { font-family: var(--sans); font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: var(--dim); text-transform: uppercase; }
-  .metrics-val   { font-size: 18px; color: var(--text); line-height: 1.2; }
+  .metrics-val   { font-size: 16px; color: var(--text); line-height: 1.2; }
 
-  #self-bottom {
-    flex: 1; display: grid; grid-template-columns: auto 1fr;
-    gap: 1px; background: var(--border); min-height: 0;
-  }
-  #peaks-block {
-    background: var(--bg); padding: 10px 14px;
-    display: flex; flex-direction: column; flex-shrink: 0;
-  }
-  #peaks-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px;
-    flex: 1; align-content: space-around; margin-top: 4px;
-  }
-  .peak-cell { display: flex; flex-direction: column; gap: 1px; }
-  .peak-row  { display: flex; align-items: baseline; gap: 6px; }
-  .peak-dur  { font-family: var(--sans); font-size: 11px; font-weight: 600; color: var(--dim); width: 28px; text-align: right; flex-shrink: 0; }
-  .peak-val  { font-size: 22px; font-weight: 400; color: var(--text); line-height: 1; }
-  .peak-unit { font-family: var(--sans); font-size: 11px; color: var(--dim); }
-  .peak-sub  { font-family: var(--sans); font-size: 11px; color: var(--muted); padding-left: 34px; }
-  .peak-hr   { font-family: var(--sans); font-size: 11px; color: var(--dim);   padding-left: 34px; }
+  #zone-bar-wrap { flex-shrink: 0; background: var(--bg2); padding: 3px 0; display: flex; flex-direction: column; gap: 2px; }
+  .zone-bar-row  { display: flex; align-items: center; }
+  .zone-bar-label { font-family: var(--sans); font-size: 9px; font-weight: 700; color: #000; background: #888; width: 14px; text-align: center; flex-shrink: 0; line-height: 12px; }
+  .zone-bar-row canvas { flex: 1; display: block; height: 12px; }
 
+  #peaks-strip {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 1px; background: var(--border); flex-shrink: 0;
+  }
+  .hpeak-cell { background: var(--bg2); padding: 4px 8px; }
+  .hpeak-dur  { font-family: var(--sans); font-size: 9px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; }
+  .hpeak-val  { font-size: 18px; font-weight: 500; color: var(--text); line-height: 1.1; }
+  .hpeak-wkg  { font-family: var(--sans); font-size: 10px; color: var(--muted); }
+  .hpeak-hr   { font-family: var(--sans); font-size: 10px; color: var(--dim); }
+
+  /* chart block fills sec-chart */
   #chart-block {
-    background: var(--bg); display: flex; flex-direction: column;
-    min-width: 0; padding: 8px 10px 8px 6px;
+    flex: 1; background: var(--bg); display: flex; flex-direction: column;
+    min-height: 0; padding: 6px 10px 6px 6px;
   }
   #chart-legend {
-    display: flex; gap: 12px; align-items: center; margin-bottom: 4px; flex-shrink: 0;
+    display: flex; gap: 12px; align-items: center; margin-bottom: 3px; flex-shrink: 0;
   }
   .legend-item { display: flex; align-items: center; gap: 4px; font-family: var(--sans); font-size: 10px; color: var(--dim); }
   .legend-dot  { width: 8px; height: 3px; border-radius: 2px; flex-shrink: 0; }
@@ -232,51 +276,83 @@
 
   .no-data { display: flex; align-items: center; justify-content: center; height: 60px; font-size: 12px; color: var(--dim); }
 
-  /* ── FOOTER ── */
-  #footer {
-    display: flex; gap: 16px; padding: 3px 10px;
-    background: var(--bg2); border-top: 1px solid var(--border);
-    font-size: 10px; color: var(--dim); flex-shrink: 0;
-  }
-
   @keyframes flash { 0%,100%{color:var(--bright)} 50%{color:var(--accent)} }
   .flash { animation: flash 0.3s ease; }
 </style>
 </head>
 <body>
 
+<!-- SETTINGS MODAL -->
+<div id="settings-overlay">
+  <div id="settings-modal">
+    <h2>Connection &amp; Rider Settings</h2>
+
+    <div class="setting-row">
+      <span class="setting-label">Sauce Host</span>
+      <div class="setting-combo">
+        <select id="sel-host" class="setting-select"></select>
+        <input id="sauce-host" type="text" class="setting-new-input" placeholder="host:port" style="display:none" />
+      </div>
+    </div>
+    <div class="setting-row" style="margin-bottom:16px">
+      <span class="setting-label"></span>
+      <button id="connect-btn" style="width:160px;padding:4px;background:var(--accent);border:none;color:var(--bg);font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;border-radius:2px">Connect</button>
+    </div>
+
+    <div class="setting-row">
+      <span class="setting-label">FTP (w)</span>
+      <div class="setting-combo">
+        <select id="sel-ftp" class="setting-select"></select>
+        <input id="rider-ftp" type="number" class="setting-new-input" placeholder="watts" min="100" max="600" style="display:none" />
+      </div>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Max HR (bpm)</span>
+      <div class="setting-combo">
+        <select id="sel-maxhr" class="setting-select"></select>
+        <input id="max-hr" type="number" class="setting-new-input" placeholder="bpm" min="100" max="230" style="display:none" />
+      </div>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Age</span>
+      <div class="setting-combo">
+        <select id="sel-age" class="setting-select"></select>
+        <input id="rider-age" type="number" class="setting-new-input" placeholder="years" min="18" max="90" style="display:none" />
+      </div>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Gender</span>
+      <select id="rider-gender" class="setting-select" style="width:160px">
+        <option value="M">Male</option>
+        <option value="F">Female</option>
+      </select>
+    </div>
+
+    <button id="settings-close">Save &amp; Connect</button>
+  </div>
+</div>
+
 <div id="conn-bar">
   <div id="status-dot" class="disconnected"></div>
-  <span id="status-text">disconnected</span>
-  <input id="sauce-host" type="text" value="localhost:1080" placeholder="host:port" />
-  <button id="connect-btn">Connect</button>
+  <span id="conn-host-display">localhost:1080</span>
+  <button id="btn-settings">⚙</button>
   <span id="last-update"></span>
 </div>
 
 <div id="sections">
 
-  <!-- SELF -->
-  <div class="section" id="sec-self">
+  <!-- TOP: all data rows + peaks -->
+  <div class="section" id="sec-top">
     <div class="section-header">
       <span class="section-title">Self</span>
-      <div id="self-inputs">
-        <label class="self-input-label">MaxHR <input id="max-hr" type="number" value="172" min="100" max="230" class="self-input" style="width:40px" /></label>
-        <label class="self-input-label">Age <input id="rider-age" type="number" value="40" min="18" max="90" class="self-input" style="width:36px" /></label>
-        <label class="self-input-label">Gender
-          <select id="rider-gender" class="self-input">
-            <option value="M">M</option>
-            <option value="F">F</option>
-          </select>
-        </label>
-      </div>
     </div>
-    <div class="section-body">
+    <div class="section-body" style="overflow:hidden">
 
       <div id="self-top">
         <div id="power-block">
           <div class="stat-label">Power</div>
           <div><span class="big-val" id="s-power">—</span><span class="big-unit">w</span><span id="s-wkg" style="font-family:var(--sans);font-size:18px;color:var(--muted);margin-left:10px"></span></div>
-          <div class="sub-val">avg <span id="s-avgpwr">—</span>w &nbsp; max <span id="s-maxpwr">—</span>w &nbsp;·&nbsp; <span id="s-if" style="font-family:var(--sans)"></span></div>
+          <div class="sub-val">avg <span id="s-avgpwr">—</span>w &nbsp; max <span id="s-maxpwr">—</span>w</div>
         </div>
         <div id="wbal-block">
           <div class="stat-label">W' Balance</div>
@@ -333,6 +409,15 @@
         <div class="metrics-cell">
           <div class="metrics-label">TSS</div>
           <div class="metrics-val" id="s-tss">—</div>
+          <div class="sub-val" id="s-tss-debug" style="font-size:10px"></div>
+        </div>
+        <div class="metrics-cell">
+          <div class="metrics-label">IF</div>
+          <div class="metrics-val" id="s-if2">—</div>
+        </div>
+        <div class="metrics-cell">
+          <div class="metrics-label">kJ</div>
+          <div class="metrics-val" id="s-kj">—</div>
         </div>
         <div class="metrics-cell">
           <div class="metrics-label">Calories</div>
@@ -340,60 +425,75 @@
         </div>
       </div>
 
-      <div id="self-bottom">
-        <div id="peaks-block">
-          <div class="stat-label">Peaks</div>
-          <div id="peaks-grid">
-            <div class="peak-cell">
-              <div class="peak-row"><span class="peak-dur">5s</span><span class="peak-val" id="pk-5s">—</span><span class="peak-unit">w</span></div>
-              <div class="peak-sub" id="pk-5s-wkg">—</div>
-              <div class="peak-hr" id="pk-5s-hr">—</div>
-            </div>
-            <div class="peak-cell">
-              <div class="peak-row"><span class="peak-dur">1m</span><span class="peak-val" id="pk-1m">—</span><span class="peak-unit">w</span></div>
-              <div class="peak-sub" id="pk-1m-wkg">—</div>
-              <div class="peak-hr" id="pk-1m-hr">—</div>
-            </div>
-            <div class="peak-cell">
-              <div class="peak-row"><span class="peak-dur">15s</span><span class="peak-val" id="pk-15s">—</span><span class="peak-unit">w</span></div>
-              <div class="peak-sub" id="pk-15s-wkg">—</div>
-              <div class="peak-hr" id="pk-15s-hr">—</div>
-            </div>
-            <div class="peak-cell">
-              <div class="peak-row"><span class="peak-dur">5m</span><span class="peak-val" id="pk-5m">—</span><span class="peak-unit">w</span></div>
-              <div class="peak-sub" id="pk-5m-wkg">—</div>
-              <div class="peak-hr" id="pk-5m-hr">—</div>
-            </div>
-            <div class="peak-cell">
-              <div class="peak-row"><span class="peak-dur">30s</span><span class="peak-val" id="pk-30s">—</span><span class="peak-unit">w</span></div>
-              <div class="peak-sub" id="pk-30s-wkg">—</div>
-              <div class="peak-hr" id="pk-30s-hr">—</div>
-            </div>
-            <div class="peak-cell">
-              <div class="peak-row"><span class="peak-dur">20m</span><span class="peak-val" id="pk-20m">—</span><span class="peak-unit">w</span></div>
-              <div class="peak-sub" id="pk-20m-wkg">—</div>
-              <div class="peak-hr" id="pk-20m-hr">—</div>
-            </div>
-          </div>
+      <div id="zone-bar-wrap">
+        <div class="zone-bar-row">
+          <span class="zone-bar-label">HR</span>
+          <canvas id="hr-zone-canvas"></canvas>
         </div>
-        <div id="chart-block">
-          <div id="chart-legend">
-            <div class="legend-item"><div class="legend-dot" style="background:#4488ff"></div>Z2</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#00e87a"></div>Z3</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#f5c400"></div>Z4</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#ff7a00"></div>Z5</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#ff2d55"></div>Z6</div>
-            <div class="legend-item" style="margin-left:8px"><div class="legend-dot" style="background:#ff2d55"></div>HR</div>
-            <div id="chart-label">5m</div>
-          </div>
-          <canvas id="power-canvas"></canvas>
+        <div class="zone-bar-row">
+          <span class="zone-bar-label">W</span>
+          <canvas id="zone-bar-canvas"></canvas>
+        </div>
+      </div>
+
+      <div id="peaks-strip">
+        <div class="hpeak-cell">
+          <div class="hpeak-dur">5s</div>
+          <div class="hpeak-val" id="pk-5s">—</div>
+          <div class="hpeak-wkg" id="pk-5s-wkg">—</div>
+          <div class="hpeak-hr"  id="pk-5s-hr">—</div>
+        </div>
+        <div class="hpeak-cell">
+          <div class="hpeak-dur">15s</div>
+          <div class="hpeak-val" id="pk-15s">—</div>
+          <div class="hpeak-wkg" id="pk-15s-wkg">—</div>
+          <div class="hpeak-hr"  id="pk-15s-hr">—</div>
+        </div>
+        <div class="hpeak-cell">
+          <div class="hpeak-dur">1m</div>
+          <div class="hpeak-val" id="pk-1m">—</div>
+          <div class="hpeak-wkg" id="pk-1m-wkg">—</div>
+          <div class="hpeak-hr"  id="pk-1m-hr">—</div>
+        </div>
+        <div class="hpeak-cell">
+          <div class="hpeak-dur">5m</div>
+          <div class="hpeak-val" id="pk-5m">—</div>
+          <div class="hpeak-wkg" id="pk-5m-wkg">—</div>
+          <div class="hpeak-hr"  id="pk-5m-hr">—</div>
+        </div>
+        <div class="hpeak-cell">
+          <div class="hpeak-dur">20m</div>
+          <div class="hpeak-val" id="pk-20m">—</div>
+          <div class="hpeak-wkg" id="pk-20m-wkg">—</div>
+          <div class="hpeak-hr"  id="pk-20m-hr">—</div>
         </div>
       </div>
 
     </div>
   </div>
 
-  <!-- NEARBY -->
+  <div class="drag-handle" id="drag-handle-1" title="Drag to resize"></div>
+
+  <!-- MIDDLE: 10-minute chart -->
+  <div class="section" id="sec-chart">
+    <div id="chart-block" style="flex:1;display:flex;flex-direction:column;min-height:0;padding:6px 10px 6px 6px;background:var(--bg)">
+      <div id="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#4488ff"></div>Z2</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#00e87a"></div>Z3</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f5c400"></div>Z4</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff7a00"></div>Z5</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff2d55"></div>Z6</div>
+        <div class="legend-item" style="margin-left:8px"><div class="legend-dot" style="background:#ff2d55"></div>HR</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,0.45)"></div>CAD</div>
+        <div id="chart-label">10m</div>
+      </div>
+      <canvas id="power-canvas"></canvas>
+    </div>
+  </div>
+
+  <div class="drag-handle" id="drag-handle-2" title="Drag to resize"></div>
+
+  <!-- BOTTOM: nearby -->
   <div class="section" id="sec-nearby">
     <div class="section-header">
       <span class="section-title">Nearby</span>
@@ -452,30 +552,124 @@
 
 </div>
 
-<div id="footer">
-  <span>PKT <span id="f-packets">0</span></span>
-  <span>EVT <span id="f-evtsub">—</span></span>
-</div>
-
 <script>
 const state = {
   pollTimer: null, selfId: null, selfWbalMax: null, selfFtp: null, selfWeight: null,
   nearbyRaw: [], athleteCache: {}, powerHistory: [], hrHistory: [], fullPowerHistory: [],
-  polls: 0, eventOnly: true, hideBots: true, selfEventSubgroup: null,
-  connected: false, selectedRiderId: null,
+  cadHistory: [], polls: 0, eventOnly: true, hideBots: true, selfEventSubgroup: null,
+  connected: false, selectedRiderId: null, zoneTimes: {}, hrZoneTimes: {}, totalCal: 0,
+  failCount: 0,
 };
-const MAX_HISTORY_S = 300;
-const WBAL_FULL     = 20000;
-const POLL_MS       = 1000;
-const $             = id => document.getElementById(id);
+const MAX_HISTORY_S  = 600; // 10 minutes
+const WBAL_FULL      = 20000;
+const POLL_MS        = 1000;
+const FAIL_THRESHOLD = 4;
+const NEARBY_WINDOW  = 8;
+const SELF_TARGET    = 4;
+const $              = id => document.getElementById(id);
 
-function getHost() { return $('sauce-host').value.trim() || 'localhost:1080'; }
-function apiUrl(p) { return `http://${getHost()}/api/${p}`; }
+function apiUrl(p)  { return `http://${getHost()}/api/${p}`; }
+function getFtp()   { return parseInt(getFieldValue('ftps'), 10) || state.selfFtp || null; }
+function getMaxHr() { return parseInt(getFieldValue('maxhrs'), 10) || 172; }
+
+// ── SETTINGS PERSISTENCE ─────────────────────────────────────────────────
+const LS_KEY = 'hud-settings-v1';
+const NEW_VAL = '__new__';
+
+// Field definitions: id of select, id of input, localStorage key, default
+const SETTING_FIELDS = [
+  { selId: 'sel-host',  inpId: 'sauce-host', key: 'hosts',  def: 'localhost:1080', type: 'text'   },
+  { selId: 'sel-ftp',   inpId: 'rider-ftp',  key: 'ftps',   def: '',               type: 'number' },
+  { selId: 'sel-maxhr', inpId: 'max-hr',     key: 'maxhrs', def: '172',            type: 'number' },
+  { selId: 'sel-age',   inpId: 'rider-age',  key: 'ages',   def: '40',             type: 'number' },
+];
+
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; }
+}
+
+function saveSettings(data) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch {}
+}
+
+function populateSelects() {
+  const data = loadSettings();
+  SETTING_FIELDS.forEach(({ selId, inpId, key, def }) => {
+    const sel = $(selId);
+    const inp = $(inpId);
+    if (!sel || !inp) return;
+    const saved = data[key] || (def ? [def] : []);
+    sel.innerHTML = '';
+    saved.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v; opt.textContent = v || '(auto)';
+      sel.appendChild(opt);
+    });
+    const newOpt = document.createElement('option');
+    newOpt.value = NEW_VAL; newOpt.textContent = '+ New value…';
+    sel.appendChild(newOpt);
+    // Select first value by default
+    if (saved.length > 0) { sel.value = saved[0]; inp.style.display = 'none'; }
+    sel.onchange = () => {
+      if (sel.value === NEW_VAL) {
+        inp.style.display = ''; inp.value = ''; inp.focus();
+      } else {
+        inp.style.display = 'none';
+      }
+    };
+  });
+  // Gender
+  const gender = data.gender || 'M';
+  if ($('rider-gender')) $('rider-gender').value = gender;
+}
+
+function getCurrentValues() {
+  const vals = {};
+  SETTING_FIELDS.forEach(({ selId, inpId, key }) => {
+    const sel = $(selId);
+    const inp = $(inpId);
+    if (!sel) return;
+    vals[key] = sel.value === NEW_VAL ? (inp?.value?.trim() || '') : sel.value;
+  });
+  vals.gender = $('rider-gender')?.value || 'M';
+  return vals;
+}
+
+function getFieldValue(key) {
+  const field = SETTING_FIELDS.find(f => f.key === key);
+  if (!field) return '';
+  const sel = $(field.selId);
+  const inp = $(field.inpId);
+  return sel?.value === NEW_VAL ? (inp?.value?.trim() || '') : (sel?.value || '');
+}
+
+function commitSettings() {
+  const data = loadSettings();
+  const current = getCurrentValues();
+  SETTING_FIELDS.forEach(({ key, def }) => {
+    const val = current[key];
+    if (!val) return; // skip empty
+    const existing = data[key] || (def ? [def] : []);
+    if (!existing.includes(val)) {
+      data[key] = [val, ...existing].slice(0, 5); // keep last 5
+    } else {
+      // Bubble selected value to top
+      data[key] = [val, ...existing.filter(v => v !== val)];
+    }
+  });
+  data.gender = current.gender;
+  saveSettings(data);
+}
+
+// Override getHost to read from the combo
+function getHost() {
+  return getFieldValue('hosts') || 'localhost:1080';
+}
 
 // ── POLLING ───────────────────────────────────────────────────────────────
 function connect() {
   if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
-  state.connected = false;
+  state.connected = false; state.failCount = 0;
   setStatus('connecting', getHost());
   poll().then(() => { state.pollTimer = setInterval(poll, POLL_MS); })
         .catch(() => setStatus('disconnected', 'unreachable'));
@@ -483,29 +677,47 @@ function connect() {
 
 async function poll() {
   try {
-    const [nr, sr] = await Promise.all([
-      fetch(apiUrl('nearby/v2?resource=state&resource=athlete&resource=stats&stats=true'),          { signal: AbortSignal.timeout(2000) }),
-      fetch(apiUrl('athlete/v2/watching?resource=state&resource=stats&resource=athlete&stats=true'), { signal: AbortSignal.timeout(2000) }),
+    const [nr, sr] = await Promise.allSettled([
+      fetch(apiUrl('nearby/v2?resource=state&resource=athlete&resource=stats&stats=true'),           { signal: AbortSignal.timeout(4000) }),
+      fetch(apiUrl('athlete/v2/watching?resource=state&resource=stats&resource=athlete&stats=true'), { signal: AbortSignal.timeout(4000) }),
     ]);
-    if (!state.connected) { state.connected = true; setStatus('connected', getHost()); }
-    state.polls++;
-    $('f-packets').textContent  = state.polls;
-    $('last-update').textContent = new Date().toLocaleTimeString();
-    if (nr.ok) { const d = await nr.json(); state.nearbyRaw = Array.isArray(d) ? d : (d.data ?? []); processNearby(state.nearbyRaw); }
-    if (sr.ok) { const d = await sr.json(); processSelf(d.data ?? d); }
+    const nrOk = nr.status === 'fulfilled' && nr.value.ok;
+    const srOk = sr.status === 'fulfilled' && sr.value.ok;
+    if (nrOk || srOk) {
+      state.failCount = 0;
+      if (!state.connected) { state.connected = true; setStatus('connected', getHost()); }
+      state.polls++;
+      $('last-update').textContent = new Date().toLocaleTimeString();
+      if (nrOk) { const d = await nr.value.json(); state.nearbyRaw = Array.isArray(d) ? d : (d.data ?? []); processNearby(state.nearbyRaw); }
+      if (srOk) { const d = await sr.value.json(); processSelf(d.data ?? d); }
+    } else { throw new Error('both endpoints failed'); }
   } catch {
-    if (state.connected) { state.connected = false; setStatus('disconnected', 'lost connection'); }
+    state.failCount = (state.failCount || 0) + 1;
+    if (state.failCount >= FAIL_THRESHOLD && state.connected) {
+      state.connected = false;
+      setStatus('disconnected', `lost connection (${state.failCount} fails)`);
+    }
   }
 }
 
-function setStatus(cls, txt) { $('status-dot').className = cls; $('status-text').textContent = txt; }
+function setStatus(cls, txt) {
+  $('status-dot').className = cls;
+  $('conn-host-display').textContent = getHost();
+}
 
 // ── NEARBY ────────────────────────────────────────────────────────────────
 function processNearby(riders) {
   const self = riders.find(r => r.watching === true);
   if (self) {
-    state.selfId = self.athleteId || self.id;
-    state.selfEventSubgroup = self.state?.eventSubgroupId ?? null;
+    state.selfId             = self.athleteId || self.id;
+    state.selfEventSubgroup  = self.state?.eventSubgroupId ?? null;
+    if (state.polls % 10 === 0) {
+      console.log('[pos]', {
+        eventPosition: self.eventPosition ?? 'n/a',
+        eventParticipants: self.eventParticipants ?? 'n/a',
+        nearbyCount: riders.length,
+      });
+    }
   }
   riders.forEach(r => {
     const id = r.athleteId || r.id;
@@ -521,166 +733,158 @@ function processNearby(riders) {
 
 // ── SELF ──────────────────────────────────────────────────────────────────
 function processSelf(d) {
+  try {
   const st    = d.state  || {};
   const stats = d.stats  || {};
   const ps    = stats.power || {};
 
-  // Power
   const pwr = st.power ?? null;
   setVal('s-power', pwr, 0, false);
   const wt = state.athleteCache[state.selfId]?.weight || d.athlete?.weight || null;
   if (wt) state.selfWeight = wt;
-  const ftp = state.selfFtp || null;
+  const ftpInput = parseInt(getFieldValue('ftps'), 10) || null;
+  if (d.athlete?.ftp && !ftpInput) state.selfFtp = d.athlete.ftp;
+  const ftp = ftpInput || state.selfFtp || null;
   const pwrColor = (pwr !== null && ftp) ? zoneColor(pwr, ftp) : 'var(--bright)';
   $('s-power').style.color = pwrColor;
   if (pwr !== null && wt) {
-    $('s-wkg').textContent   = `${(pwr/wt).toFixed(1)} w/kg`;
-    $('s-wkg').style.color   = pwrColor;
-  } else {
-    $('s-wkg').textContent = '';
-  }
+    $('s-wkg').textContent = `${(pwr/wt).toFixed(1)} w/kg`;
+    $('s-wkg').style.color = pwrColor;
+  } else { $('s-wkg').textContent = ''; }
 
-  // W' balance
   const wbal   = d.wBal ?? null;
   const wPrime = d.athlete?.wPrime ?? WBAL_FULL;
   if (wbal !== null) { if (!state.selfWbalMax) state.selfWbalMax = wPrime; updateWbal(wbal, wPrime); }
-  if (d.athlete?.ftp) state.selfFtp = d.athlete.ftp;
 
-  // HR
   const hr = st.heartrate ?? null;
-  setVal('s-hr',    hr,                 0);
-  setVal('s-avghr', stats.hr?.avg ?? null, 0);
-  setVal('s-maxhr', stats.hr?.max ?? null, 0);
-  if (hr !== null) {
-    $('s-hr').style.color = hrZoneColor(hr, getMaxHr());
-  }
+  setVal('s-hr',      hr,                   0);
+  setVal('s-avghr',   stats.hr?.avg ?? null, 0);
+  setVal('s-maxhr',   stats.hr?.max ?? null, 0);
+  if (hr !== null) $('s-hr').style.color = hrZoneColor(hr, getMaxHr());
 
-  // Cadence
   setVal('s-cad',      st.cadence         ?? null, 0);
   setVal('s-avgcad',   stats.cadence?.avg ?? null, 0);
   setVal('s-maxcad',   stats.cadence?.max ?? null, 0);
 
-  // Speed — Sauce sends km/h directly
   setVal('s-speed',    st.speed           ?? null, 1);
   setVal('s-avgspeed', stats.speed?.avg   ?? null, 1);
   setVal('s-maxspeed', stats.speed?.max   ?? null, 1);
 
-  // Draft / powerup
   setVal('s-draft', st.draft ?? null, 0);
   const pu = st.activePowerUp;
   $('powerup-display').style.display = pu ? 'block' : 'none';
   if (pu) $('powerup-badge').textContent = formatPowerUp(pu);
 
-  // Power stats + peaks
   setVal('s-avgpwr', ps.avg ?? null, 0);
   setVal('s-maxpwr', ps.max ?? null, 0);
+
   const peakMap   = {};
   const peakHrMap = {};
-  (ps.peaks  || []).forEach(p => { if (p.avg  != null) peakMap[p.period]   = p.avg;  });
+  (ps.peaks        || []).forEach(p => { if (p.avg != null) peakMap[p.period]   = p.avg; });
   (stats.hr?.peaks || []).forEach(p => { if (p.avg != null) peakHrMap[p.period] = p.avg; });
 
-  const timeSec = st.time ?? stats.activeTime ?? null;  // ride elapsed seconds
+  const timeSec = st.time ?? stats.activeTime ?? null;
 
   const PEAK_PERIODS = [
     { id: '5s',  period: 5    },
     { id: '15s', period: 15   },
-    { id: '30s', period: 30   },
     { id: '1m',  period: 60   },
     { id: '5m',  period: 300  },
     { id: '20m', period: 1200 },
   ];
   const wt2 = state.selfWeight || null;
   PEAK_PERIODS.forEach(({ id, period }) => {
-    // Don't show peak if ride hasn't lasted long enough
-    const valid = timeSec !== null && timeSec >= period;
-    const w = valid ? (peakMap[period] ?? null) : null;
-    setVal(`pk-${id}`, w, 0);
-    const wkgEl = $(`pk-${id}-wkg`);
-    const hrEl  = $(`pk-${id}-hr`);
+    const valid  = timeSec !== null && timeSec >= period;
+    const w      = valid ? (peakMap[period] ?? null) : null;
+    const wkgEl  = $(`pk-${id}-wkg`);
+    const hrEl   = $(`pk-${id}-hr`);
+    const valEl  = $(`pk-${id}`);
+    if (valEl) valEl.textContent = w !== null ? Math.round(w) : '—';
     if (wkgEl) wkgEl.textContent = (w !== null && wt2) ? `${(w/wt2).toFixed(1)} w/kg` : '—';
     let peakHr = valid ? (peakHrMap[period] ?? null) : null;
     if (valid && peakHr === null) peakHr = calcPeakHr(state.hrHistory, period);
     if (hrEl) {
-      hrEl.textContent = peakHr !== null ? `${Math.round(peakHr)} bpm` : '—';
-      hrEl.style.color = peakHr !== null ? hrZoneColor(peakHr, getMaxHr()) : 'var(--dim)';
+      hrEl.textContent  = peakHr !== null ? `${Math.round(peakHr)} bpm` : '—';
+      hrEl.style.color  = peakHr !== null ? hrZoneColor(peakHr, getMaxHr()) : 'var(--dim)';
     }
   });
 
-  // Distance + time + laps
   const distM = st.distance ?? null;
   $('s-dist').textContent = distM !== null ? `${(distM/1000).toFixed(2)} km` : '—';
   $('s-time').textContent = timeSec !== null ? formatDuration(timeSec) : '—';
   const laps = st.laps ?? d.lapCount ?? null;
   $('s-laps').textContent = laps !== null ? String(laps) : '—';
 
-  // Remaining
   const rem    = d.remaining;
   const metric = d.remainingMetric ?? 'distance';
   if (rem != null) {
-    $('remaining-val').textContent = metric === 'distance' ? `${(rem/1000).toFixed(1)} km` : formatDuration(rem);
+    $('remaining-val').textContent = metric === 'distance'
+      ? (rem >= 1000 ? `${(rem/1000).toFixed(1)} km` : `${Math.round(rem)} m`)
+      : formatDuration(rem);
     $('remaining-lbl').textContent = metric === 'distance' ? 'Dist Left' : 'Time Left';
   }
 
-  // TSS + Calories
-  const np2    = calcNP(state.fullPowerHistory);
-  const ftpV   = state.selfFtp || null;
+  const np2  = calcNP(state.fullPowerHistory);
+  const ftpV = ftp;
   if (np2 !== null && ftpV && timeSec) {
     const ifV = np2 / ftpV;
     const tss = (timeSec * ifV * ifV * 100) / 3600;
-    $('s-tss').textContent = Math.round(tss);
+    $('s-tss').textContent      = Math.round(tss);
+    $('s-tss-debug').textContent = `NP ${Math.round(np2)}w · FTP ${ftpV}w`;
+    $('s-if2').textContent      = ifV.toFixed(2);
+    $('s-if2').style.color      = zoneColor(np2, ftpV);
   } else {
-    $('s-tss').textContent = '—';
+    $('s-tss').textContent      = '—';
+    $('s-tss-debug').textContent = `NP ${np2 !== null ? Math.round(np2)+'w' : '—'} · FTP ${ftpV ?? '—'}w`;
+    $('s-if2').textContent      = '—';
   }
-  if (hr !== null && timeSec && wt2) {
-    const age    = parseInt($('rider-age')?.value,    10) || 40;
+
+  const avgPwr = ps.avg ?? null;
+  if (avgPwr !== null && timeSec) {
+    $('s-kj').textContent = Math.round(avgPwr * timeSec / 1000);
+  } else { $('s-kj').textContent = '—'; }
+
+  if (hr !== null && wt2) {
+    const age    = parseInt(getFieldValue('ages'), 10) || 40;
     const gender = $('rider-gender')?.value || 'M';
-    const cal    = calcKeytelCalories(hr, wt2, age, gender, timeSec);
-    $('s-cal').textContent = Math.round(cal);
-  } else {
-    $('s-cal').textContent = '—';
-  }
+    state.totalCal += calcKeytelCalories(hr, wt2, age, gender, 1);
+    $('s-cal').textContent = Math.round(state.totalCal);
+  } else if (!state.totalCal) { $('s-cal').textContent = '—'; }
 
-  // Event subgroup
-  if (st.eventSubgroupId) $('f-evtsub').textContent = st.eventSubgroupId;
+  if (st.eventSubgroupId) state.selfEventSubgroup = st.eventSubgroupId;
 
-  // Chart history (capped at 5m for display)
-  const now = Date.now() / 1000;
-  const cut = now - MAX_HISTORY_S;
-  if (pwr !== null) {
-    state.powerHistory.push({ t: now, w: pwr });
-    state.fullPowerHistory.push({ t: now, w: pwr }); // unbounded for NP
-  }
+  const now      = Date.now() / 1000;
+  const cut      = now - MAX_HISTORY_S;
+  const pwrSample = pwr !== null ? pwr : 0;
+
+  if (ftp) { const z = zoneName(pwrSample, ftp); state.zoneTimes[z] = (state.zoneTimes[z] || 0) + 1; }
+  if (hr !== null) { const hz = hrZoneName(hr, getMaxHr()); state.hrZoneTimes[hz] = (state.hrZoneTimes[hz] || 0) + 1; }
+  drawZoneBar(); drawHrZoneBar();
+
+  state.powerHistory.push({ t: now, w: pwrSample });
+  state.fullPowerHistory.push({ t: now, w: pwrSample });
   if (st.heartrate != null) state.hrHistory.push({ t: now, w: st.heartrate });
+  if (st.cadence   != null) state.cadHistory.push({ t: now, w: st.cadence });
   state.powerHistory = state.powerHistory.filter(p => p.t >= cut);
   state.hrHistory    = state.hrHistory.filter(p => p.t >= cut);
-
-  // Normalized Power + Intensity Factor
-  const np = calcNP(state.fullPowerHistory);
-  const ftpVal = state.selfFtp || null;
-  if (np !== null && ftpVal) {
-    const ifVal = np / ftpVal;
-    $('s-if').textContent = `IF ${ifVal.toFixed(2)}`;
-    $('s-if').style.color = zoneColor(np, ftpVal);
-  } else {
-    $('s-if').textContent = '';
-  }
+  state.cadHistory   = state.cadHistory.filter(p => p.t >= cut);
 
   drawChart();
+  } catch(e) { console.error('[processSelf error]', e); }
 }
 
 // ── W' GAUGE ─────────────────────────────────────────────────────────────
 function updateWbal(wbal, max) {
   max = max || WBAL_FULL;
-  const pct = Math.max(0, Math.min(1, wbal / max));
+  const pct   = Math.max(0, Math.min(1, wbal / max));
   const color = pct > 0.6 ? `hsl(${150-(1-pct)*200}deg,85%,52%)` : pct > 0.3 ? `hsl(${30-(0.3-pct)*133}deg,90%,52%)` : 'var(--red)';
-  $('wbal-num').textContent        = (wbal/1000).toFixed(1);
-  $('wbal-num').style.color        = color;
-  $('wbal-pct').textContent        = ` ${Math.round(pct*100)}%`;
-  $('wbal-bar-fill').style.width      = `${pct*100}%`;
+  $('wbal-num').textContent          = (wbal/1000).toFixed(1);
+  $('wbal-num').style.color          = color;
+  $('wbal-pct').textContent          = ` ${Math.round(pct*100)}%`;
+  $('wbal-bar-fill').style.width     = `${pct*100}%`;
   $('wbal-bar-fill').style.background = color;
 }
 
-// ── POWER-UP NAME ────────────────────────────────────────────────────────
 function formatPowerUp(pu) {
   const map = { FEATHER:'⚡ Feather', DRAFT_BOOST:'💨 Aero', BURRITO:'🌯 Burrito',
     ANVIL:'⚓ Anvil', GHOST:'👻 Ghost', STEAMROLLER:'🚂 Steamroller',
@@ -691,25 +895,23 @@ function formatPowerUp(pu) {
 
 // ── NORMALIZED POWER ─────────────────────────────────────────────────────
 function calcNP(hist) {
-  if (hist.length < 30) return null; // need at least 30s
-  // 30s rolling average at each point
+  if (hist.length < 30) return null;
   const rolling = hist.map((p, i) => {
     const slice = hist.slice(Math.max(0, i - 29), i + 1);
     return slice.reduce((s, x) => s + x.w, 0) / slice.length;
   });
-  // Mean of 4th powers, then 4th root
   const mean4 = rolling.reduce((s, v) => s + Math.pow(v, 4), 0) / rolling.length;
   return Math.pow(mean4, 0.25);
 }
 
 // ── CHART ────────────────────────────────────────────────────────────────
 const ZONE_COLORS = [
-  { pct: 0,    color: '#555566' }, // Z1 < 55%
-  { pct: 0.55, color: '#4488ff' }, // Z2 55-75%
-  { pct: 0.75, color: '#00e87a' }, // Z3 75-90%
-  { pct: 0.90, color: '#f5c400' }, // Z4 90-105%
-  { pct: 1.05, color: '#ff7a00' }, // Z5 105-120%
-  { pct: 1.20, color: '#ff2d55' }, // Z6+ >120%
+  { pct: 0,    color: '#555566' },
+  { pct: 0.55, color: '#4488ff' },
+  { pct: 0.75, color: '#00e87a' },
+  { pct: 0.90, color: '#f5c400' },
+  { pct: 1.05, color: '#ff7a00' },
+  { pct: 1.20, color: '#ff2d55' },
 ];
 
 function zoneColor(watts, ftp) {
@@ -720,44 +922,57 @@ function zoneColor(watts, ftp) {
   return c;
 }
 
-function getMaxHr() {
-  return parseInt($('max-hr')?.value, 10) || 172;
+function zoneName(watts, ftp) {
+  if (!ftp || ftp <= 0) return 'Z1';
+  const r = watts / ftp;
+  if (r >= 1.20) return 'Z6';
+  if (r >= 1.05) return 'Z5';
+  if (r >= 0.90) return 'Z4';
+  if (r >= 0.75) return 'Z3';
+  if (r >= 0.55) return 'Z2';
+  return 'Z1';
 }
 
-// HR zones scaled to maxHr (using your BPM breakpoints at maxHr=172)
+function getMaxHr() { return parseInt($('max-hr')?.value, 10) || 172; }
+
 function hrZoneColor(bpm, maxHr) {
   const pct = bpm / maxHr;
-  if (pct >= 0.872) return '#ff2d55'; // Z5 VO2 Max  (150/172)
-  if (pct >= 0.779) return '#f5c400'; // Z4 Threshold (134/172)
-  if (pct >= 0.686) return '#00e87a'; // Z3 Tempo     (118/172)
-  if (pct >= 0.599) return '#4488ff'; // Z2 Aerobic   (103/172)
-  return '#555566';                    // Z1 Recovery
+  if (pct >= 0.872) return '#ff2d55';
+  if (pct >= 0.779) return '#f5c400';
+  if (pct >= 0.686) return '#00e87a';
+  if (pct >= 0.599) return '#4488ff';
+  return '#555566';
 }
 
-// Calculate peak average HR over `durationS` seconds from recorded history
+function hrZoneName(bpm, maxHr) {
+  const pct = bpm / maxHr;
+  if (pct >= 0.872) return 'Z5';
+  if (pct >= 0.779) return 'Z4';
+  if (pct >= 0.686) return 'Z3';
+  if (pct >= 0.599) return 'Z2';
+  return 'Z1';
+}
+
 function calcPeakHr(hist, durationS) {
   if (hist.length < 2) return null;
   let best = null;
   for (let i = 0; i < hist.length; i++) {
     const windowStart = hist[i].t;
     const slice = hist.filter(p => p.t >= windowStart && p.t < windowStart + durationS);
-    if (slice.length < Math.min(durationS * 0.8, hist.length)) continue; // need 80% coverage
+    if (slice.length < Math.min(durationS * 0.8, hist.length)) continue;
     const avg = slice.reduce((s, p) => s + p.w, 0) / slice.length;
     if (best === null || avg > best) best = avg;
   }
   return best;
 }
 
-// Keytel et al. (2005) calorie estimation from HR
-// Male:   Cal/min = (-55.0969 + 0.6309×HR + 0.1988×weight_kg + 0.2017×age) / 4.184
-// Female: Cal/min = (-20.4022 + 0.4472×HR - 0.1263×weight_kg + 0.074×age)  / 4.184
 function calcKeytelCalories(hr, weightKg, age, gender, durationS) {
   const durationMin = durationS / 60;
   let calPerMin;
   if (gender === 'F') {
-    calPerMin = (-20.4022 + 0.4472 * hr - 0.1263 * weightKg + 0.074 * age) / 4.184;
+    calPerMin = (-20.4022 + 0.4472 * hr - 0.1263 * weightKg + 0.074 * age);
   } else {
-    calPerMin = (-55.0969 + 0.6309 * hr + 0.1988 * weightKg + 0.2017 * age) / 4.184;
+    calPerMin = (-55.0969 + 0.6309 * hr + 0.1988 * weightKg + 0.2017 * age);
   }
   return Math.max(0, calPerMin * durationMin);
 }
@@ -775,6 +990,50 @@ function hexToRgb(hex) {
   return `${r},${g},${b}`;
 }
 
+function drawZoneBar() {
+  const canvas = $('zone-bar-canvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  if (!W || !H) return;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
+  const zones  = ['Z1','Z2','Z3','Z4','Z5','Z6'];
+  const colors = { Z1:'#555566', Z2:'#4488ff', Z3:'#00e87a', Z4:'#f5c400', Z5:'#ff7a00', Z6:'#ff2d55' };
+  const total  = zones.reduce((s, z) => s + (state.zoneTimes[z] || 0), 0);
+  if (total === 0) return;
+  let x = 0;
+  zones.forEach(z => {
+    const secs = state.zoneTimes[z] || 0;
+    if (secs === 0) return;
+    const w = (secs / total) * W;
+    ctx.fillStyle = colors[z]; ctx.fillRect(x, 0, w, H); x += w;
+  });
+}
+
+function drawHrZoneBar() {
+  const canvas = $('hr-zone-canvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  if (!W || !H) return;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
+  const zones  = ['Z1','Z2','Z3','Z4','Z5'];
+  const colors = { Z1:'#555566', Z2:'#4488ff', Z3:'#00e87a', Z4:'#f5c400', Z5:'#ff2d55' };
+  const total  = zones.reduce((s, z) => s + (state.hrZoneTimes[z] || 0), 0);
+  if (total === 0) return;
+  let x = 0;
+  zones.forEach(z => {
+    const secs = state.hrZoneTimes[z] || 0;
+    if (secs === 0) return;
+    const w = (secs / total) * W;
+    ctx.fillStyle = colors[z]; ctx.fillRect(x, 0, w, H); x += w;
+  });
+}
+
 function drawChart() {
   const canvas = $('power-canvas');
   if (!canvas) return;
@@ -785,7 +1044,6 @@ function drawChart() {
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr); ctx.clearRect(0,0,W,H);
 
-  // Grid
   ctx.strokeStyle = '#1e2d3d'; ctx.lineWidth = 1;
   [0.25, 0.5, 0.75].forEach(f => {
     const y = H - f*H; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
@@ -794,75 +1052,91 @@ function drawChart() {
   const hist = state.powerHistory;
   if (hist.length < 2) return;
 
-  const ftp   = state.selfFtp || 300;
+  const ftp   = getFtp() || 300;
   const now   = Date.now() / 1000;
   const toX   = t => ((t - (now - MAX_HISTORY_S)) / MAX_HISTORY_S) * W;
-  const vals  = hist.map(p => p.w);
-  const maxW  = Math.max(...vals, ftp * 0.5, 1);
-  const toY   = w => H - (w / maxW) * H * 0.88 - 4;
+  const W_CAP = 750;
+  const toY   = w => H - (Math.min(w, W_CAP) / W_CAP) * H * 0.88 - 4;
 
-  const smoothed = smooth(hist, 5);
+  const smoothed = smooth(hist, 7);
 
-  // ── Zone-colored fill: draw one filled polygon per segment ──
-  for (let i = 1; i < hist.length; i++) {
-    const p0 = hist[i-1], p1 = hist[i];
-    const mid = (p0.w + p1.w) / 2;
-    const col = zoneColor(mid, ftp);
+  for (let i = 1; i < smoothed.length; i++) {
+    const p0 = smoothed[i-1], p1 = smoothed[i];
+    const col = zoneColor((p0.w + p1.w) / 2, ftp);
     ctx.beginPath();
-    ctx.moveTo(toX(p0.t), H);
-    ctx.lineTo(toX(p0.t), toY(p0.w));
-    ctx.lineTo(toX(p1.t), toY(p1.w));
-    ctx.lineTo(toX(p1.t), H);
+    ctx.moveTo(toX(p0.t), H); ctx.lineTo(toX(p0.t), toY(p0.w));
+    ctx.lineTo(toX(p1.t), toY(p1.w)); ctx.lineTo(toX(p1.t), H);
     ctx.closePath();
-    ctx.fillStyle = `rgba(${hexToRgb(col)},0.45)`;
-    ctx.fill();
+    ctx.fillStyle = `rgba(${hexToRgb(col)},0.45)`; ctx.fill();
   }
 
-  // ── Zone-colored line (smoothed) ──
   for (let i = 1; i < smoothed.length; i++) {
     const p0 = smoothed[i-1], p1 = smoothed[i];
     const col = zoneColor((p0.w + p1.w) / 2, ftp);
     ctx.beginPath();
     ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
-    ctx.moveTo(toX(p0.t), toY(p0.w));
-    ctx.lineTo(toX(p1.t), toY(p1.w));
+    ctx.moveTo(toX(p0.t), toY(p0.w)); ctx.lineTo(toX(p1.t), toY(p1.w));
     ctx.stroke();
   }
 
-  // ── FTP reference line ──
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
   const ftpY = toY(ftp);
   ctx.beginPath(); ctx.moveTo(0, ftpY); ctx.lineTo(W, ftpY); ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = "bold 12px 'Roboto Mono'";
   ctx.fillText(`FTP ${ftp}`, 3, ftpY - 4);
 
-  // ── HR overlay (normalized to its own scale) ──
+  // HR overlay — zone-colored, fixed scale 0 to maxHR+10
   const hrHist = state.hrHistory;
   if (hrHist.length >= 2) {
-    const hrVals = hrHist.map(p => p.w);
-    const minHr  = Math.min(...hrVals), maxHr = Math.max(...hrVals, minHr + 1);
-    const toYhr  = v => H - ((v - minHr) / (maxHr - minHr)) * H * 0.6 - 4;
-    const sHr    = smooth(hrHist, 15);
-    ctx.beginPath(); ctx.strokeStyle = '#ff2d55'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.globalAlpha = 0.9;
-    sHr.forEach((p, i) => i === 0 ? ctx.moveTo(toX(p.t), toYhr(p.w)) : ctx.lineTo(toX(p.t), toYhr(p.w)));
-    ctx.stroke(); ctx.globalAlpha = 1;
-    ctx.fillStyle = '#ff2d55'; ctx.globalAlpha = 0.85;
-    ctx.font = "bold 12px 'Roboto Mono'";
-    ctx.fillText(`${Math.round(maxHr)}`, W - 28, toYhr(maxHr) + 10);
+    const mxHr   = getMaxHr();
+    const hrCeil = mxHr + 10;
+    const toYhr  = v => H - ((Math.max(0, Math.min(hrCeil, v))) / hrCeil) * H * 0.75 - 4;
+    const sHr    = smooth(hrHist, 25);
+    const lastHr = sHr[sHr.length - 1]?.w ?? null;
+
+    for (let i = 1; i < sHr.length; i++) {
+      const p0 = sHr[i-1], p1 = sHr[i];
+      const col = hrZoneColor((p0.w + p1.w) / 2, mxHr);
+      ctx.beginPath();
+      ctx.moveTo(toX(p0.t), H); ctx.lineTo(toX(p0.t), toYhr(p0.w));
+      ctx.lineTo(toX(p1.t), toYhr(p1.w)); ctx.lineTo(toX(p1.t), H);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(${hexToRgb(col)},0.30)`; ctx.fill();
+    }
+    for (let i = 1; i < sHr.length; i++) {
+      const p0 = sHr[i-1], p1 = sHr[i];
+      const col = hrZoneColor((p0.w + p1.w) / 2, mxHr);
+      ctx.beginPath();
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.globalAlpha = 0.85;
+      ctx.moveTo(toX(p0.t), toYhr(p0.w)); ctx.lineTo(toX(p1.t), toYhr(p1.w));
+      ctx.stroke();
+    }
     ctx.globalAlpha = 1;
+    if (lastHr !== null) {
+      ctx.fillStyle = hrZoneColor(lastHr, mxHr); ctx.globalAlpha = 0.9;
+      ctx.font = "bold 12px 'Roboto Mono'";
+      ctx.fillText(`${Math.round(lastHr)}`, W - 28, toYhr(lastHr) + 10);
+      ctx.globalAlpha = 1;
+    }
   }
 
-  // ── Max power label ──
+  // Cadence — white line, fixed scale 0-150rpm, 5-point smooth
+  const cadHist = state.cadHistory;
+  if (cadHist.length >= 2) {
+    const toYcad = v => H - ((Math.max(0, Math.min(150, v))) / 150) * H * 0.5 - 4;
+    const sCad   = smooth(cadHist, 5);
+    ctx.beginPath(); ctx.lineJoin = 'round'; ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.globalAlpha = 1;
+    sCad.forEach((p, i) => i === 0 ? ctx.moveTo(toX(p.t), toYcad(p.w)) : ctx.lineTo(toX(p.t), toYcad(p.w)));
+    ctx.stroke();
+  }
+
   ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = "bold 12px 'Roboto Mono'";
-  ctx.fillText(`${Math.round(maxW)}w`, 3, toY(maxW) + 10);
+  ctx.fillText(`${W_CAP}w`, 3, toY(W_CAP) + 10);
 }
 
 // ── NEARBY TABLE ─────────────────────────────────────────────────────────
-const NEARBY_WINDOW = 11;  // visible rows
-const SELF_TARGET   = 5;   // desired self position (1-based)
-
 function renderNearby(riders) {
   const sub = state.selfEventSubgroup;
   let filtered = riders.filter(r => {
@@ -876,29 +1150,18 @@ function renderNearby(riders) {
   filtered.sort((a,b) => (a.gap??0) - (b.gap??0));
 
   if (!filtered.length) {
-    $('rider-table').style.display = 'none';
-    $('no-riders').style.display   = 'flex';
-    return;
+    $('rider-table').style.display = 'none'; $('no-riders').style.display = 'flex'; return;
   }
-  $('rider-table').style.display = '';
-  $('no-riders').style.display   = 'none';
+  $('rider-table').style.display = ''; $('no-riders').style.display = 'none';
 
-  // Find self index in sorted list
   const selfIdx = filtered.findIndex(r => r.watching === true);
-
-  // Calculate window start so self lands at SELF_TARGET (0-based: position 4)
   let winStart = 0;
   if (selfIdx >= 0) {
     winStart = selfIdx - (SELF_TARGET - 1);
     winStart = Math.max(0, winStart);
-    // If not enough riders below self to fill window, shift start up
-    const winEnd = winStart + NEARBY_WINDOW;
-    if (winEnd > filtered.length) {
-      winStart = Math.max(0, filtered.length - NEARBY_WINDOW);
-    }
+    if (winStart + NEARBY_WINDOW > filtered.length) winStart = Math.max(0, filtered.length - NEARBY_WINDOW);
   }
   const visible = filtered.slice(winStart, winStart + NEARBY_WINDOW);
-
   const tbody = $('rider-tbody');
   tbody.innerHTML = '';
 
@@ -912,7 +1175,7 @@ function renderNearby(riders) {
     const wt     = cached.weight || r.athlete?.weight || null;
     const wkg    = (pwr !== null && wt) ? (pwr/wt).toFixed(1) : '—';
     const gap    = r.gap ?? null;
-    const absPos = winStart + i + 1;  // position in full sorted list
+    const absPos = winStart + i + 1;
 
     let wcolor = 'var(--muted)';
     if (wbal !== null) {
@@ -924,7 +1187,6 @@ function renderNearby(riders) {
     const tr = document.createElement('tr');
     if (isSelf) tr.classList.add('is-self');
     if (id === state.selectedRiderId) tr.classList.add('selected');
-
     tr.innerHTML = `
       <td style="color:var(--dim);font-size:10px">${absPos}</td>
       <td class="name-td" title="${name}">${truncate(name,18)}</td>
@@ -948,7 +1210,6 @@ function renderNearby(riders) {
         renderNearby(state.nearbyRaw);
       });
     }
-
     tbody.appendChild(tr);
   });
 }
@@ -961,12 +1222,10 @@ function updateDetailPanel(r) {
   const pwr    = r.state?.power ?? null;
   const wt     = cached.weight || r.athlete?.weight || null;
   const wPrime = r.athlete?.wPrime ?? WBAL_FULL;
-
   $('detail-name').textContent = truncate(name, 32);
   $('d-pwr').textContent = pwr !== null ? `${pwr}w` : '—';
   $('d-wkg').textContent = (pwr !== null && wt) ? `${(pwr/wt).toFixed(1)} w/kg` : '';
   $('d-gap').textContent = r.gap != null ? formatGap(Math.abs(r.gap)) : '—';
-
   if (wbal !== null) {
     const pct   = Math.max(0, Math.min(1, wbal / wPrime));
     const color = pct > 0.6 ? `hsl(${150-(1-pct)*200}deg,85%,52%)` : pct > 0.3 ? `hsl(${30-(0.3-pct)*133}deg,90%,52%)` : 'var(--red)';
@@ -976,13 +1235,11 @@ function updateDetailPanel(r) {
     $('detail-wbar-fill').style.width      = `${pct*100}%`;
     $('detail-wbar-fill').style.background = color;
   } else {
-    $('d-wbal').textContent     = '—';
-    $('d-wbal-pct').textContent = '';
+    $('d-wbal').textContent = '—'; $('d-wbal-pct').textContent = '';
     $('detail-wbar-fill').style.width = '0%';
   }
 }
 
-// ── ATHLETE FETCH ────────────────────────────────────────────────────────
 async function fetchAthlete(id) {
   try {
     const res = await fetch(`http://${getHost()}/api/athlete/v1/${id}`, { signal: AbortSignal.timeout(4000) });
@@ -993,7 +1250,6 @@ async function fetchAthlete(id) {
   } catch {}
 }
 
-// ── HELPERS ───────────────────────────────────────────────────────────────
 function setVal(id, val, decimals=0, flash=false) {
   const el = $(id); if (!el) return;
   if (val === null || val === undefined) { el.textContent = '—'; return; }
@@ -1023,7 +1279,109 @@ function isBot(r) {
 
 function truncate(str, len) { return str.length > len ? str.slice(0, len-1) + '…' : str; }
 
+// ── DRAG TO RESIZE ────────────────────────────────────────────────────────
+const LS_SPLIT_KEY  = 'hud-split-v2';
+const HANDLE_H      = 6;
+const MIN_TOP_PX    = 80;   // minimum height for top data section
+const MIN_CHART_PX  = 60;   // minimum height for chart
+const MIN_NEARBY_PX = 60;   // minimum height for nearby
+
+function getSectionsH() {
+  return $('sections')?.getBoundingClientRect().height || window.innerHeight;
+}
+
+function saveSplits(topH, nearbyH) {
+  const total = getSectionsH();
+  try {
+    localStorage.setItem(LS_SPLIT_KEY, JSON.stringify({
+      topPct:    topH    / total,
+      nearbyPct: nearbyH / total,
+    }));
+  } catch {}
+}
+
+function loadSplits() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LS_SPLIT_KEY) || '{}');
+    return { topPct: d.topPct || 0.45, nearbyPct: d.nearbyPct || 0.18 };
+  } catch { return { topPct: 0.45, nearbyPct: 0.18 }; }
+}
+
+function applySplits(topH, nearbyH) {
+  const total    = getSectionsH();
+  const handles  = HANDLE_H * 2;
+  const chartH   = Math.max(MIN_CHART_PX, total - topH - nearbyH - handles);
+  // Clamp top so chart doesn't go below minimum
+  const clampedTop = Math.min(topH, total - handles - MIN_CHART_PX - nearbyH);
+  $('sec-top').style.height    = `${Math.max(MIN_TOP_PX, clampedTop)}px`;
+  $('sec-nearby').style.height = `${Math.max(MIN_NEARBY_PX, nearbyH)}px`;
+  drawChart(); drawZoneBar(); drawHrZoneBar();
+}
+
+function initSplit() {
+  const { topPct, nearbyPct } = loadSplits();
+  const total = getSectionsH();
+  applySplits(total * topPct, total * nearbyPct);
+
+  let activeHandle = null;
+  let startY = 0, startTopH = 0, startNearbyH = 0;
+
+  ['drag-handle-1', 'drag-handle-2'].forEach(hid => {
+    const handle = $(hid);
+    if (!handle) return;
+    handle.addEventListener('mousedown', e => {
+      activeHandle = hid;
+      startY       = e.clientY;
+      startTopH    = $('sec-top').getBoundingClientRect().height;
+      startNearbyH = $('sec-nearby').getBoundingClientRect().height;
+      handle.classList.add('dragging');
+      e.preventDefault();
+    });
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!activeHandle) return;
+    const delta = e.clientY - startY;
+    if (activeHandle === 'drag-handle-1') {
+      // Handle 1: moves boundary between top and chart
+      applySplits(startTopH + delta, startNearbyH);
+    } else {
+      // Handle 2: moves boundary between chart and nearby
+      applySplits(startTopH, startNearbyH - delta);
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!activeHandle) return;
+    $(`${activeHandle}`)?.classList.remove('dragging');
+    activeHandle = null;
+    const topH    = $('sec-top').getBoundingClientRect().height;
+    const nearbyH = $('sec-nearby').getBoundingClientRect().height;
+    saveSplits(topH, nearbyH);
+  });
+}
+
 // ── EVENT LISTENERS ───────────────────────────────────────────────────────
+$('btn-settings').addEventListener('click', () => {
+  populateSelects();
+  $('settings-overlay').classList.add('open');
+});
+$('settings-close').addEventListener('click', () => {
+  commitSettings();
+  $('settings-overlay').classList.remove('open');
+  if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+  connect();
+});
+$('settings-overlay').addEventListener('click', e => {
+  if (e.target === $('settings-overlay')) $('settings-overlay').classList.remove('open');
+});
+$('connect-btn').addEventListener('click', () => {
+  commitSettings();
+  $('settings-overlay').classList.remove('open');
+  if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+  connect();
+});
+
 $('btn-event-only').addEventListener('click', () => {
   state.eventOnly = !state.eventOnly;
   $('btn-event-only').classList.toggle('active', state.eventOnly);
@@ -1040,15 +1398,14 @@ $('btn-clear-sel').addEventListener('click', () => {
   $('btn-clear-sel').style.display = 'none';
   renderNearby(state.nearbyRaw);
 });
-$('connect-btn').addEventListener('click', () => {
-  if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
-  connect();
+window.addEventListener('resize', () => {
+  const { topPct, nearbyPct } = loadSplits();
+  const total = getSectionsH();
+  applySplits(total * topPct, total * nearbyPct);
 });
-$('sauce-host').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; } connect(); }
-});
-window.addEventListener('resize', drawChart);
 
+populateSelects();
+initSplit();
 connect();
 </script>
 </body>
